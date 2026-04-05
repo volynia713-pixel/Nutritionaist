@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nutritionaist — Merged Edition</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <div class="app-screen">
+      <header class="topbar">
+        <div class="brand-badge">NW</div>
+        <div class="topbar-meta">
+          <div class="topbar-title">Nutritionaist</div>
+          <div class="topbar-subtitle">ежедневный трекер питания</div>
+        </div>
+      </header>
+
+      <!-- Скрытый input для загрузки фото -->
+      <input type="file" id="photo-file-input" accept="image/*" style="display:none;" />
+
+      <section id="screen-home" class="screen active">
+        <div class="hero-card hero-card--compact" style="position:relative;">
+          <button class="hero-photo-btn" id="home-photo-btn" type="button" title="Фото профиля">
+            <span class="hero-photo-placeholder" id="home-photo-placeholder">?</span>
+            <span class="hero-photo-hint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </span>
+          </button>
+          <div class="eyebrow">профиль на сегодня</div>
+          <h1 class="hero-title" id="home-greeting">Привет!</h1>
+          <p class="lead" id="home-subline">Сегодня можно двигаться спокойно и по шагам</p>
+          <div class="home-cta-row">
+            <button class="btn btn-primary home-btn-main" data-open="screen-add" type="button">Добавить запись</button>
+            <button class="link-btn" data-open="screen-diary" type="button">Открыть дневник →</button>
+          </div>
+        </div>
+
+        <div class="card home-progress-card">
+          <div class="card-title-row">
+            <div class="card-title">Прогресс дня</div>
+            <div class="hero-date-chip" id="home-date-chip"></div>
+          </div>
+          <div class="home-kcal-main" id="home-kcal-main">0 / 0 ккал</div>
+          <div class="home-progress-bar">
+            <div class="home-progress-fill" id="home-progress-fill" style="width:0%"></div>
+          </div>
+          <div class="home-metrics-row">
+            <div class="home-metric"><span id="today-meals">0</span> приёмов</div>
+            <div class="home-metric"><span id="home-water-ml">0</span> мл воды</div>
+            <div class="home-metric">осталось <span id="today-remaining">0</span> ккал</div>
+          </div>
+        </div>
+
+        <div class="card home-next-card" id="home-next-card"></div>
+
+        <div class="section-head">
+          <h3>Сегодня</h3>
+          <button class="link-btn" data-open="screen-diary" type="button">Весь день →</button>
+        </div>
+        <div id="home-meals"></div>
+
+        <div class="section-head">
+          <h3>Совет</h3>
+          <button class="link-btn" data-open="screen-tips" type="button">Все советы →</button>
+        </div>
+        <div id="home-tip"></div>
+      </section>
+
+      <section id="screen-diary" class="screen">
+        <div class="hero-card" style="position:relative;">
+          <div class="eyebrow">дневник питания</div>
+          <h1 class="hero-title">Календарь питания</h1>
+          <p class="lead">Выбирай день, смотри историю и быстро добавляй новые записи.</p>
+          <div class="hero-date-chip" id="diary-date-chip"></div>
+        </div>
+
+        <div class="calendar-strip" id="calendar-strip"></div>
+
+        <div class="card">
+          <div class="card-title" id="selected-date-title">Сегодня</div>
+          <div class="card-subtitle" id="diary-stats"></div>
+          <div id="diary-meals"></div>
+        </div>
+
+        <div class="sheet">
+          <div class="card-title">Быстрое действие</div>
+          <div class="card-subtitle">Открыть день и добавить запись в один шаг.</div>
+
+          <div id="diary-primary-slot"></div>
+          <div id="diary-water-slot" class="top-space"></div>
+          <div id="diary-snack-slot" class="top-space"></div>
+        </div>
+      </section>
+
+      <section id="screen-add" class="screen">
+        <div class="hero-card hero-card--compact" style="position:relative;">
+          <div class="hero-date-chip" id="add-date-chip"></div>
+          <div class="eyebrow">новая запись</div>
+          <h1 class="hero-title" style="font-size:24px;margin-bottom:2px;">Новая запись</h1>
+          <p class="lead" style="margin-bottom:0;font-size:13px;" id="add-screen-date-label"></p>
+        </div>
+
+        <div class="sheet add-screen-sheet">
+
+          <!-- Чипы типа приёма -->
+          <div class="field">
+            <label>Тип приёма</label>
+            <div class="meal-type-chips" id="meal-type-chips"></div>
+            <select id="meal-type" class="visually-hidden">
+              <option>Завтрак</option>
+              <option>Обед</option>
+              <option>Ужин</option>
+              <option>Перекус</option>
+            </select>
+          </div>
+
+          <!-- Поиск + микрофон -->
+          <div class="field top-space">
+            <label for="product-search">Найти продукт</label>
+            <div class="search-with-mic">
+              <input id="product-search" type="text"
+                placeholder="Например: гречка, омлет, яблоко"
+                autocomplete="off" />
+              <button id="voice-mic-btn" class="voice-mic-btn" type="button" title="Голосовой ввод" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="23"/>
+                  <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Быстрые категории -->
+          <div class="category-chip-list" id="category-filter-chips" style="margin-top:8px;"></div>
+          <select id="product-category" class="visually-hidden"></select>
+          <!-- Выбранные продукты -->
+          <div id="meal-products" class="top-space"></div>
+
+          <!-- Кнопки шаблонов — появляются когда есть продукты -->
+          <div class="tpl-action-row top-space" id="tpl-action-row">
+            <button class="tpl-btn tpl-btn--secondary" onclick="openTemplatesModal()" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              Мои шаблоны
+            </button>
+            <button class="tpl-btn tpl-btn--primary" id="save-template-btn" onclick="openSaveTemplateModal()" type="button" style="display:none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Сохранить шаблон
+            </button>
+          </div>
+
+          <!-- Итог + влияние на день -->
+          <div class="card top-space" id="add-totals-card">
+            <div class="card-title">Итог приёма</div>
+            <div class="card-subtitle" id="calc-summary">Добавь хотя бы один продукт.</div>
+            <div class="metrics metrics-4">
+              <div class="metric-card">
+                <div class="metric-value" id="total-kcal">0</div>
+                <div class="metric-label">ккал</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value" id="total-protein">0</div>
+                <div class="metric-label">белки</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value" id="total-fats">0</div>
+                <div class="metric-label">жиры</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value" id="total-carbs">0</div>
+                <div class="metric-label">углеводы</div>
+              </div>
+            </div>
+            <div id="day-impact-block" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(31,35,29,.08);">
+              <div style="font-size:12px;font-weight:700;color:#7a866f;margin-bottom:4px;">После сохранения</div>
+              <div id="day-impact-text" style="font-size:13px;color:#1f231d;font-weight:600;"></div>
+            </div>
+          </div>
+
+          <!-- Подсказка -->
+          <div id="meal-builder-suggestion" class="top-space"></div>
+
+          <!-- Аккордеон деталей -->
+          <div class="details-accordion top-space" id="details-accordion">
+            <button class="details-accordion-toggle" id="details-toggle" type="button">
+              <span>Детали (дата, время, комментарий)</span>
+              <span class="details-accordion-arrow" id="details-arrow">▾</span>
+            </button>
+            <div class="details-accordion-body" id="details-body" style="display:none;">
+              <div class="grid-2" style="margin-top:12px;">
+                <div class="field">
+                  <label for="meal-date">Дата</label>
+                  <input type="date" id="meal-date" />
+                </div>
+                <div class="field">
+                  <label for="meal-time">Время</label>
+                  <input type="time" id="meal-time" />
+                </div>
+              </div>
+              <div class="field">
+                <label for="meal-comment">Комментарий</label>
+                <input type="text" id="meal-comment" placeholder="Например: после тренировки" />
+              </div>
+            </div>
+          </div>
+
+          <div style="height:80px;"></div>
+        </div>
+
+        <!-- Sticky кнопка -->
+        <div class="add-sticky-bar">
+          <button class="btn btn-primary full-width" id="save-meal-btn" type="button">Сохранить запись</button>
+          <button class="link-btn" id="cancel-meal-btn" type="button" style="display:block;text-align:center;margin-top:8px;padding:6px;">Отмена</button>
+        </div>
+      </section>
+
+      <section id="screen-tips" class="screen">
+        <div class="hero-card">
+          <div class="eyebrow">советы нутрициолога</div>
+          <h1 class="hero-title">Советы нутрициолога</h1>
+          <p class="lead">Не давление, а спокойные ориентиры на основе профиля и ритма питания.</p>
+        </div>
+        <div id="tips-list"></div>
+      </section>
+
+      <section id="screen-profile" class="screen">
+        <div class="hero-card" style="position:relative;">
+          <button class="hero-photo-btn" id="profile-hero-photo-btn" type="button" title="Фото профиля">
+            <span class="hero-photo-placeholder" id="profile-hero-photo-placeholder">?</span>
+            <span class="hero-photo-hint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </span>
+          </button>
+          <div class="eyebrow">личный профиль</div>
+          <h1 class="hero-title">Профиль</h1>
+        </div>
+
+        <div class="profile-card">
+          <button class="profile-photo-card" id="profile-photo-btn" type="button" title="Загрузить фото">
+            <span class="profile-photo-placeholder" id="profile-photo-placeholder">?</span>
+            <span class="profile-photo-edit-hint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </span>
+          </button>
+          <div>
+            <div class="card-title" id="profile-card-name">Новый профиль</div>
+            <div class="card-subtitle no-margin">Персональный профиль</div>
+          </div>
+        </div>
+
+        <div class="sheet">
+          <div class="field">
+            <label for="profile-name">Имя</label>
+            <input type="text" id="profile-name" placeholder="Например: Александр" />
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="profile-age">Возраст</label>
+              <input type="number" id="profile-age" min="10" max="100" placeholder="34" />
+            </div>
+            <div class="field">
+              <label for="profile-gender">Пол</label>
+              <select id="profile-gender">
+                <option value="">Выберите</option>
+                <option value="male">Мужской</option>
+                <option value="female">Женский</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="profile-weight">Вес, кг</label>
+              <input type="number" id="profile-weight" min="30" max="250" placeholder="84" />
+            </div>
+            <div class="field">
+              <label for="profile-height">Рост, см</label>
+              <input type="number" id="profile-height" min="100" max="250" placeholder="182" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="profile-goal">Цель</label>
+            <select id="profile-goal">
+              <option value="">Выберите</option>
+              <option value="lose">Похудение</option>
+              <option value="maintain">Поддержание</option>
+              <option value="gain">Набор массы</option>
+            </select>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-profile-btn" type="button">Сохранить изменения</button>
+            <button class="btn btn-danger" id="reset-profile-btn" type="button">Сбросить профиль</button>
+          </div>
+        </div>
+      </section>
+
+      <nav class="bottom-nav">
+        <button class="nav-btn active" data-open="screen-home" type="button">Главная</button>
+        <button class="nav-btn" data-open="screen-diary" type="button">Дневник</button>
+        <button class="nav-btn" data-open="screen-add" type="button">Добавить</button>
+        <button class="nav-btn" data-open="screen-tips" type="button">Советы</button>
+        <button class="nav-btn" data-open="screen-profile" type="button">Профиль</button>
+      </nav>
+    </div>
+  </main>
+
+  <script src="products.js"></script>
+  <script src="storage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
