@@ -67,6 +67,7 @@ textarea {
 .app-screen {
   min-height: calc(100vh - 20px);
   padding: 14px;
+  padding-bottom: 80px;
   border-radius: 16px;
   background: linear-gradient(180deg, var(--bg-soft) 0%, #f7f3ec 100%);
   border: 1px solid rgba(255, 255, 255, 0.94);
@@ -553,6 +554,55 @@ textarea:focus {
   margin-top: 4px;
 }
 
+/* Карточка воды */
+.meal-card--water {
+  background: #EDF4F1;
+  border-color: #D7E4DE;
+}
+.meal-card--water .time-badge {
+  background: #D7E4DE;
+  border-color: #C0D3CC;
+  color: #6E8F88;
+}
+.meal-card--water .meal-name {
+  color: #4A7068;
+}
+.meal-card--water .meal-calories {
+  color: #6E8F88;
+}
+
+/* Карточка перекуса */
+.meal-card--snack {
+  background: #F6EEE6;
+  border-color: #E7D8C8;
+}
+.meal-card--snack .time-badge {
+  background: #E7D8C8;
+  border-color: #D4C0A8;
+  color: #A67C5B;
+}
+.meal-card--snack .meal-name {
+  color: #7A5438;
+}
+.meal-card--snack .meal-calories {
+  color: #A67C5B;
+}
+
+/* Затемнённые варианты для прошедших карточек */
+.meal-card--water.meal-card--past {
+  background: #E0EDEA;
+  border-color: #C5D9D3;
+  opacity: 0.6;
+}
+.meal-card--snack.meal-card--past {
+  background: #EDE5DB;
+  border-color: #D9C9B5;
+  opacity: 0.6;
+}
+.meal-card--past:not(.meal-card--water):not(.meal-card--snack) {
+  opacity: 0.55;
+}
+
 .delete-round {
   position: absolute;
   top: 12px;
@@ -706,19 +756,23 @@ textarea:focus {
 /* ─── Bottom nav ───────────────────────────────── */
 
 .bottom-nav {
-  position: sticky;
-  bottom: 0;
-  margin-top: 18px;
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 20px);
+  max-width: 412px;
+  z-index: 1000;
   padding: 5px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 5px;
   border-radius: 11px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 16px rgba(31, 35, 29, 0.05);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 8px 24px rgba(31, 35, 29, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .nav-btn {
@@ -1363,20 +1417,58 @@ textarea:focus {
 }
 
 .add-product-amt-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: var(--btn-size);
+  height: var(--btn-size);
+  border-radius: var(--btn-border-radius);
   border: 1.5px solid rgba(68, 86, 58, 0.22);
   background: var(--card-soft);
   color: var(--accent-deep);
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 400;
   cursor: pointer;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   padding: 0;
   box-sizing: border-box;
   flex-shrink: 0;
+  line-height: 1.3;
+}
+
+/* Кнопки - и + в модалках (категории, подсказки) */
+[data-cm-dec], [data-cm-inc],
+[data-sg-dec], [data-sg-inc],
+[data-sg-amount-dec], [data-sg-amount-inc],
+[data-snack-dec], [data-snack-inc] {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  font-size: 18px !important;
+  font-weight: 400 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Крестик × в модалках */
+[data-cm-remove], [data-remove-item],
+[data-snack-remove], [data-sg-remove] {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Дополнительные кнопки удаления и другие */
+.delete-round,
+.row-remove {
+  display: flex;
+  align-items: var(--btn-align-items);
+  justify-content: var(--btn-justify-content);
 }
 
 .add-product-amt-val {
@@ -1449,97 +1541,137 @@ textarea:focus {
   padding-bottom: 0;
 }
 
-/* ─── Поиск с кнопкой микрофона ─────────────────── */
+/* ─── Сценарный блок состояния на экране «Добавить» ── */
 
-.search-with-mic {
-  position: relative;
+.scenario-hint-card {
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
   display: flex;
-  align-items: center;
-  gap: 0;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.search-with-mic input {
-  flex: 1;
-  padding-right: 52px; /* место под кнопку */
+.scenario-hint-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
 }
 
-.voice-mic-btn {
-  position: absolute;
-  right: 6px;
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  border: none;
-  background: var(--accent-soft);
-  color: var(--accent-deep);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: background 0.15s ease, color 0.15s ease;
-  flex-shrink: 0;
-}
-
-.voice-mic-btn:hover {
-  background: var(--accent-soft-2);
-}
-
-.voice-mic--recording {
-  background: #fee2e2 !important;
-  color: #dc2626 !important;
-  animation: mic-pulse 0.8s ease-in-out infinite;
-}
-
-@keyframes mic-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.55; }
-}
-
-/* ─── Кнопки шаблонов ────────────────────────────── */
-
-.tpl-action-row {
-  display: flex;
-  gap: 8px;
-}
-
-.tpl-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 14px;
-  border-radius: var(--radius-md);
+.scenario-hint-sub {
   font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.12s ease;
-}
-
-.tpl-btn--secondary {
-  border: 1px solid var(--line-strong);
-  background: var(--card);
+  line-height: 1.45;
   color: var(--muted);
 }
 
-.tpl-btn--secondary:hover {
-  background: var(--accent-soft);
-  color: var(--accent-deep);
-  border-color: rgba(68, 86, 58, 0.25);
+/* Пусто — нейтральный */
+.scenario-hint--empty {
+  background: var(--card-soft);
+  border-color: var(--line);
 }
 
-.tpl-btn--primary {
-  border: none;
+.scenario-hint--empty .scenario-hint-title {
+  color: var(--muted);
+}
+
+/* Частично — мягкий акцент */
+.scenario-hint--partial {
+  background: #fff9ec;
+  border-color: rgba(180, 140, 60, 0.22);
+}
+
+.scenario-hint--partial .scenario-hint-title {
+  color: #7a6030;
+}
+
+.scenario-hint--partial .scenario-hint-sub {
+  color: #9a7a40;
+}
+
+/* Собран — зелёный акцент */
+.scenario-hint--ok {
   background: var(--accent-soft-2);
+  border-color: rgba(68, 86, 58, 0.22);
+}
+
+.scenario-hint--ok .scenario-hint-title {
   color: var(--accent-deep);
 }
 
-.tpl-btn--primary:hover {
-  background: linear-gradient(135deg, var(--accent-strong), var(--accent-deep));
-  color: #fff;
+.scenario-hint--ok .scenario-hint-sub {
+  color: var(--accent-strong);
 }
 
-/* ─── Toast ──────────────────────────────────────── */
+/* ============================================
+   НАСТРАИВАЕМЫЕ ПЕРЕМЕННЫЕ ДЛЯ КНОПОК +/-
+   ============================================ */
+:root {
+  /* Способ выравнивания содержимого кнопок */
+  --btn-align-items: center;      /* center | flex-start | flex-end | stretch | baseline */
+  --btn-justify-content: center;  /* center | flex-start | flex-end | space-between | space-around */
+  
+  /* Размеры и отступы кнопок */
+  --btn-size: 28px;
+  --btn-border-radius: 8px;
+  --btn-font-size: 16px;
+  
+  /* Можно переопределить для разных типов кнопок */
+  --btn-minus-plus-display: flex;
+  --btn-minus-plus-line-height: 1;
+}
 
-@keyframes toast-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* Базовые стили для кнопок + и - на экране добавления */
+
+
+/* ============================================
+   ПРИМЕРЫ НАСТРОЙКИ (раскомментируй нужный вариант)
+   ============================================ */
+
+/* Вариант 1: Центровка по умолчанию (уже активна) */
+/* :root {
+  --btn-align-items: center;
+  --btn-justify-content: center;
+} */
+
+/* Вариант 2: Смещение вверх (если символы не по центру) */
+/* :root {
+  --btn-align-items: flex-start;
+  --btn-justify-content: center;
+  --btn-minus-plus-line-height: 1.2;
+} */
+
+/* Вариант 3: Смещение вниз */
+/* :root {
+  --btn-align-items: flex-end;
+  --btn-justify-content: center;
+} */
+
+/* Вариант 4: Растянуть содержимое */
+/* :root {
+  --btn-align-items: stretch;
+  --btn-justify-content: center;
+} */
+
+/* Вариант 5: Для кнопок с символом "×" (крестик) */
+/* .delete-round,
+.row-remove {
+  --btn-align-items: center;
+  --btn-justify-content: center;
+  padding-bottom: 2px;  /* дополнительный сдвиг для крестика */
+} */
+
+.add-time-reminder {
+  border-color: rgba(68, 86, 58, 0.14);
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbf4 100%);
+}
+
+.details-toggle {
+  text-align: left;
+}
+
+.details-toggle span[aria-hidden="true"] {
+  font-size: 18px;
+  color: var(--accent-deep);
+  line-height: 1;
+  padding-top: 2px;
 }
