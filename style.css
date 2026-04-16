@@ -613,7 +613,7 @@ textarea:focus {
   border: 1px solid var(--danger-line);
   background: var(--danger-soft);
   color: var(--danger);
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
