@@ -617,9 +617,9 @@ textarea:focus {
   font-weight: 800;
   cursor: pointer;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  line-height: 0.6;
+  line-height: 1;
   padding: 0;
   margin: 0;
   z-index: auto;
