@@ -17,7 +17,8 @@ const state = {
   addRows: [],
   currentCategory: resolveInitialCategory(),
   preselectedMealType: '',
-  preselectedCategory: ''
+  preselectedCategory: '',
+  mealTimeTouched: false
 };
 
 const SUGGESTION_TOKEN_VARIANTS = {
@@ -331,6 +332,10 @@ function resetMealFormInputs({ keepDate = true } = {}) {
   if (mealTypeInput) mealTypeInput.value = 'Завтрак';
   if (commentInput) commentInput.value = '';
   if (searchInput) searchInput.value = '';
+  state.mealTimeTouched = false;
+  updateMealTimeReminder();
+  updateMealDetailsStatus();
+  updateSaveTimeHint();
 }
 
 function syncCategoryControls() {
@@ -339,6 +344,83 @@ function syncCategoryControls() {
   if (categorySelect) categorySelect.value = category;
   renderCategoryFilterChips();
   fillProductsDataList(category);
+}
+
+
+function hasMeaningfulMealTypeSelected() {
+  const mealTypeInput = document.getElementById('meal-type');
+  return Boolean(String(mealTypeInput?.value || '').trim());
+}
+
+function getMealTimeValue() {
+  const mealTimeInput = document.getElementById('meal-time');
+  return String(mealTimeInput?.value || '').trim();
+}
+
+function updateMealDetailsStatus() {
+  const status = document.getElementById('meal-details-status');
+  if (!status) return;
+
+  const time = getMealTimeValue();
+  if (state.mealTimeTouched && time) {
+    status.textContent = `Время: ${time}`;
+    return;
+  }
+
+  status.textContent = hasMeaningfulMealTypeSelected()
+    ? 'Время не указано'
+    : 'Дата, время, комментарий';
+}
+
+function updateMealTimeReminder() {
+  const wrap = document.getElementById('meal-time-reminder');
+  const title = document.getElementById('meal-time-reminder-title');
+  const text = document.getElementById('meal-time-reminder-text');
+  const button = document.getElementById('open-meal-details-btn');
+  if (!wrap || !title || !text || !button) return;
+
+  if (!hasMeaningfulMealTypeSelected()) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  const time = getMealTimeValue();
+  wrap.style.display = 'block';
+
+  if (state.mealTimeTouched && time) {
+    title.textContent = `Время: ${time}`;
+    text.textContent = 'Оно попадёт в дневник и поможет выстроить записи по порядку.';
+    button.textContent = 'Изменить';
+    return;
+  }
+
+  title.textContent = 'Укажи время приёма';
+  text.textContent = 'Оно попадёт в дневник и поможет выстроить день по порядку.';
+  button.textContent = 'Открыть детали';
+}
+
+function updateSaveTimeHint() {
+  const hint = document.getElementById('save-time-hint');
+  if (!hint) return;
+
+  const hasProducts = Array.isArray(state.addRows) && state.addRows.some(row => getProduct(row.productName) && Number(row.amount) > 0);
+  const mealType = getSafeMealTypeValue();
+  const hasDraftContent = hasProducts || mealType === WATER_MEAL_NAME;
+  const time = getMealTimeValue();
+  const shouldShow = hasDraftContent && (!state.mealTimeTouched || !time);
+
+  hint.style.display = shouldShow ? 'block' : 'none';
+}
+
+function setMealDetailsExpanded(expanded) {
+  const content = document.getElementById('meal-details-content');
+  const toggle = document.getElementById('meal-details-toggle');
+  const icon = document.getElementById('meal-details-toggle-icon');
+  if (!content || !toggle || !icon) return;
+
+  content.style.display = expanded ? 'block' : 'none';
+  toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  icon.textContent = expanded ? '⌃' : '⌄';
 }
 
 function getDraftRowsNutrition() {
@@ -973,11 +1055,9 @@ function renderHome() {
   const goalCalories = inferGoalCalories(profile);
   const waterTarget = getWaterTarget(profile);
 
-  // Приветствие
   document.getElementById('home-greeting').textContent =
     profile?.name ? `Привет, ${profile.name}!` : 'Привет!';
 
-  // Подстрока героя — меняется по состоянию дня
   const sublineEl = document.getElementById('home-subline');
   if (sublineEl) {
     if (!stats.mealsCount) {
@@ -991,7 +1071,6 @@ function renderHome() {
     }
   }
 
-  // Прогресс дня
   const eaten = stats.calories;
   const goal = goalCalories;
   const pct = goal > 0 ? Math.min(100, Math.round(eaten / goal * 100)) : 0;
@@ -1006,7 +1085,6 @@ function renderHome() {
   const remEl = document.getElementById('today-remaining');
   if (remEl) remEl.textContent = Math.max(0, goal - eaten);
 
-  // Блок "Следующий шаг"
   const nextCard = document.getElementById('home-next-card');
   if (nextCard) {
     const primary = getPrimarySuggestionForDate(today);
@@ -1036,7 +1114,6 @@ function renderHome() {
     document.getElementById('home-water-btn')?.addEventListener('click', () => addWaterForDate(today));
   }
 
-  // Последние 3 записи
   const meals = getSortedMeals(today).slice(-3);
   const homeMeals = document.getElementById('home-meals');
   if (!meals.length) {
@@ -1049,7 +1126,6 @@ function renderHome() {
     }).join('');
   }
 
-  // Совет — один, без статусной строки
   const tips = generateTips();
   const tipEl = document.getElementById('home-tip');
   if (tipEl) {
@@ -1057,9 +1133,9 @@ function renderHome() {
   }
 }
 
-function addWaterForDate(dateStr) {
+function addWaterForDate(dateStr, customTime = '') {
   const now = new Date();
-  const time = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+  const time = String(customTime || `${pad2(now.getHours())}:${pad2(now.getMinutes())}`).trim();
   const waterProduct = getProduct('Вода');
   if (!waterProduct) return;
   const meal = {
@@ -1076,13 +1152,16 @@ function addWaterForDate(dateStr) {
   renderHome();
   renderDiary();
   renderTips();
+  if (state.currentScreen === 'screen-add') {
+    renderAddScreenContext();
+    renderDayTotalsCard();
+  }
 }
 
 function openSnackModal() {
   const SNACK_CATEGORIES = ['Фрукты и ягоды', 'Орехи, масла и добавки', 'Напитки'];
   let activeCategory = SNACK_CATEGORIES[0];
   
-  // selected: { productName: { name, category, amount, unit, caloriesPerUnit, proteinPerUnit, fatsPerUnit, carbsPerUnit } }
   const selected = {};
 
   const overlay = document.createElement('div');
@@ -1248,7 +1327,6 @@ function openSnackModal() {
         </div>
       </div>`;
 
-    // Переключение категорий
     overlay.querySelectorAll('[data-snack-tab]').forEach(tab => {
       tab.addEventListener('click', () => {
         activeCategory = tab.getAttribute('data-snack-tab');
@@ -1256,7 +1334,6 @@ function openSnackModal() {
       });
     });
 
-    // Добавление/удаление продукта
     overlay.querySelectorAll('[data-snack-product]').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.getAttribute('data-snack-product');
@@ -1270,7 +1347,6 @@ function openSnackModal() {
       });
     });
 
-    // Изменение количества
     overlay.querySelectorAll('[data-amount-input]').forEach(input => {
       const productName = input.getAttribute('data-amount-input');
       input.addEventListener('input', (e) => {
@@ -1279,7 +1355,6 @@ function openSnackModal() {
       });
     });
 
-    // Удаление из списка выбранных
     overlay.querySelectorAll('[data-remove-item]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1289,7 +1364,6 @@ function openSnackModal() {
       });
     });
 
-    // Подтверждение
     overlay.querySelector('#snack-confirm-btn')?.addEventListener('click', () => {
       const items = Object.values(selected);
       if (items.length) {
@@ -1298,7 +1372,6 @@ function openSnackModal() {
       overlay.remove();
     });
 
-    // Закрытие
     overlay.querySelector('#snack-close-btn').addEventListener('click', () => overlay.remove());
   }
 
@@ -1306,7 +1379,9 @@ function openSnackModal() {
   document.body.appendChild(overlay);
   render();
   
-}function renderDiary() {
+}
+
+function renderDiary() {
   renderDateChip('diary-date-chip', getTodayDate());
   renderCalendar();
   const analysis = getDayAnalysis(state.selectedDate);
@@ -1318,14 +1393,12 @@ function openSnackModal() {
     `Обед: ${analysis.lunchBalanced ? 'ок' : 'нет'} • ` +
     `Ужин: ${analysis.dinnerBalanced ? 'ок' : 'нет'}`;
 
-  // Список приёмов
   const meals = getSortedMeals(state.selectedDate);
   const container = document.getElementById('diary-meals');
   container.innerHTML = meals.length
     ? meals.map((meal, index) => renderMealCard(meal, state.selectedDate, index)).join('')
     : '<div class="empty-state">Нет записей на выбранную дату.</div>';
 
-  // ── Слот 1: Добавить завтрак / обед / ужин ──────────────────────────
   const primary = getPrimarySuggestionForDate(state.selectedDate);
   const primarySlot = document.getElementById('diary-primary-slot');
   if (primarySlot) {
@@ -1334,22 +1407,19 @@ function openSnackModal() {
         `<button class="btn btn-primary full-width" id="diary-primary-btn" type="button"
           style="min-height:52px;">${escapeHtml(primary.button)}</button>`;
       document.getElementById('diary-primary-btn').addEventListener('click', () => {
-  if (primary.mealType === 'Перекус') {
-    // Открываем модалку перекуса
-    openSnackModal();
-  } else {
-    // Открываем экран добавления для завтрака/обеда/ужина
-    state.preselectedMealType = primary.mealType;
-    state.preselectedCategory = primary.category || '';
-    openAddScreenForDate(state.selectedDate);
-  }
-});
+        if (primary.mealType === 'Перекус') {
+          openSnackModal();
+        } else {
+          state.preselectedMealType = primary.mealType;
+          state.preselectedCategory = primary.category || '';
+          openAddScreenForDate(state.selectedDate);
+        }
+      });
     } else {
       primarySlot.innerHTML = '';
     }
   }
 
-  // ── Слот 2: Добавить воду ───────────────────────────────────────────
   const waterSlot = document.getElementById('diary-water-slot');
   if (waterSlot) {
     const waterLogged = analysis.waterMl >= 250;
@@ -1364,7 +1434,6 @@ function openSnackModal() {
       addWaterForDate(state.selectedDate));
   }
 
-  // ── Слот 3: Добавить перекус (только когда все приёмы закрыты) ──────
   const snackSlot = document.getElementById('diary-snack-slot');
   if (snackSlot) {
     const allDone = analysis.breakfastBalanced && analysis.lunchBalanced && analysis.dinnerBalanced;
@@ -1377,215 +1446,6 @@ function openSnackModal() {
       snackSlot.innerHTML = '';
     }
   }
-}
-
-
-function openSnackModal() {
-  const SNACK_CATEGORIES = ['Фрукты и ягоды', 'Орехи, масла и добавки', 'Напитки'];
-  let activeCategory = SNACK_CATEGORIES[0];
-
-  // selected: { [productName]: { name, category } }
-  const selected = {};
-
-  const overlay = document.createElement('div');
-  overlay.id = 'snack-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,20,20,.35);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:16px;';
-
-  function buildTabsHtml(current) {
-    return SNACK_CATEGORIES.map(cat => {
-      const hasSelected = Object.values(selected).some(s => s.category === cat);
-      const isActive = cat === current;
-      const dot = hasSelected
-        ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${isActive ? '#fff' : '#657b58'};margin-left:5px;vertical-align:middle;"></span>`
-        : '';
-      return `<button data-snack-tab="${escapeHtml(cat)}"
-        style="flex:1;background:transparent;border:none;
-        border-bottom:2px solid ${isActive ? '#657b58' : '#e2e6dc'};
-        padding:10px 4px;font-size:11px;font-weight:700;
-        color:${isActive ? '#44563a' : '#7a866f'};cursor:pointer;line-height:1.3;
-        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
-      >${escapeHtml(cat)}${dot}</button>`;
-    }).join('');
-  }
-
-  function buildProductsHtml(category) {
-    return getCategoryProducts(category).map(name => {
-      const p = getProduct(name);
-      const cal = p ? `${Math.round(p.calories)} ккал/${p.unit === 'шт' ? 'шт' : '100 ' + p.unit}` : '';
-      const isChosen = Boolean(selected[name]);
-      return `<button data-snack-product="${escapeHtml(name)}" data-snack-category="${escapeHtml(category)}"
-        style="display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;
-        padding:12px 14px;margin-bottom:6px;border-radius:12px;cursor:pointer;gap:8px;
-        border:2px solid ${isChosen ? '#657b58' : 'rgba(68,86,58,.12)'};
-        background:${isChosen ? '#eef3ea' : '#faf8f4'};
-        color:${isChosen ? '#44563a' : '#1f231d'};font-size:14px;font-weight:600;">
-        <span style="display:flex;align-items:center;gap:8px;">
-          ${isChosen ? `<span style="width:18px;height:18px;border-radius:50%;background:#657b58;color:#fff;font-size:11px;display:grid;place-items:center;flex-shrink:0;">✓</span>` : `<span style="width:18px;height:18px;border-radius:50%;border:2px solid #d0d5cc;flex-shrink:0;"></span>`}
-          ${escapeHtml(name)}
-        </span>
-        <span style="font-size:11px;color:#7a866f;white-space:nowrap;flex-shrink:0;">${escapeHtml(cal)}</span>
-      </button>`;
-    }).join('');
-  }
-
-  function getSnackStep(unit) {
-    if (unit === 'шт') return 1;
-    if (unit === 'мл') return 50;
-    return 25;
-  }
-
-  function buildSelectedSummary() {
-    const items = Object.values(selected);
-    if (!items.length) return '';
-    const chips = items.map(s => {
-      const p = getProduct(s.name);
-      const unit = p ? getUnitLabel(p.unit) : 'г';
-      const calForAmount = p ? Math.round(p.calories / getAmountBase(p.unit) * s.amount) : 0;
-      return `<div style="display:flex;align-items:center;justify-content:space-between;
-        padding:8px 12px;border-radius:10px;background:#eef3ea;border:1px solid rgba(68,86,58,.18);margin-bottom:6px;">
-        <span style="font-size:13px;font-weight:700;color:#44563a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.name)}</span>
-        <span style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:8px;">
-          <button data-snack-dec="${escapeHtml(s.name)}"
-            style="width:24px;height:24px;border-radius:6px;border:1px solid rgba(68,86,58,.25);
-            background:#fff;color:#44563a;font-size:15px;font-weight:800;cursor:pointer;
-            display:grid;place-items:center;line-height:1;padding:0;box-sizing:border-box;">−</button>
-          <span style="font-size:12px;font-weight:700;color:#44563a;min-width:52px;text-align:center;">${s.amount} ${unit}</span>
-          <button data-snack-inc="${escapeHtml(s.name)}"
-            style="width:24px;height:24px;border-radius:6px;border:1px solid rgba(68,86,58,.25);
-            background:#fff;color:#44563a;font-size:15px;font-weight:800;cursor:pointer;
-            display:grid;place-items:center;line-height:1;padding:0;box-sizing:border-box;">+</button>
-          <span style="font-size:11px;color:#7a866f;min-width:38px;text-align:right;">${calForAmount} кк</span>
-          <button data-snack-remove="${escapeHtml(s.name)}"
-            style="width:22px;height:22px;border-radius:50%;border:1px solid rgba(169,77,73,.3);
-            background:#f8e7e6;color:#a94d49;font-size:14px;font-weight:800;
-            cursor:pointer;display:grid;place-items:center;line-height:1;padding:0;box-sizing:border-box;">×</button>
-        </span>
-      </div>`;
-    }).join('');
-    return `<div style="margin-bottom:12px;">
-      <div style="font-size:11px;font-weight:800;color:#7a866f;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Выбрано</div>
-      ${chips}
-    </div>`;
-  }
-
-  function totalCalories() {
-    return Object.values(selected).reduce((sum, s) => {
-      const p = getProduct(s.name);
-      if (!p) return sum;
-      const ratio = s.amount / getAmountBase(p.unit);
-      return sum + p.calories * ratio;
-    }, 0);
-  }
-
-  function render() {
-    const items = Object.values(selected);
-    const hasAny = items.length > 0;
-    const totalCal = hasAny ? Math.round(totalCalories()) : 0;
-
-    overlay.innerHTML = `
-      <div style="width:min(520px,100%);max-height:86vh;display:flex;flex-direction:column;
-        background:#fff;border-radius:24px;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,.14);">
-
-        <div style="font-size:13px;font-weight:700;color:#7a866f;margin-bottom:4px;">добавить перекус</div>
-        <div style="font-size:20px;font-weight:800;color:#23311f;margin-bottom:14px;">Выбери продукты</div>
-
-        <div style="display:flex;gap:4px;margin-bottom:14px;">${buildTabsHtml(activeCategory)}</div>
-
-        <div style="overflow-y:auto;flex:1;min-height:0;">
-          ${buildSelectedSummary()}
-          <div style="font-size:11px;font-weight:800;color:#7a866f;text-transform:uppercase;
-            letter-spacing:.5px;margin-bottom:8px;">${escapeHtml(activeCategory)}</div>
-          ${buildProductsHtml(activeCategory)}
-        </div>
-
-        <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
-          ${hasAny ? `
-            <button id="snack-confirm-btn"
-              style="width:100%;padding:14px;border-radius:14px;border:none;
-              background:linear-gradient(135deg,#657b58,#44563a);color:#fff;
-              font-size:15px;font-weight:800;cursor:pointer;">
-              Добавить перекус${totalCal ? ` • ${totalCal} ккал` : ''}
-            </button>` : ''}
-          <button id="snack-close-btn"
-            style="width:100%;padding:13px;border-radius:14px;
-            border:1px solid #d7dccf;background:#fff;color:#23311f;
-            font-size:15px;font-weight:700;cursor:pointer;">Отмена</button>
-        </div>
-      </div>`;
-
-    // Tabs
-    overlay.querySelectorAll('[data-snack-tab]').forEach(tab => {
-      tab.addEventListener('click', () => {
-        activeCategory = tab.getAttribute('data-snack-tab');
-        render();
-      });
-    });
-
-    // Product toggle
-    overlay.querySelectorAll('[data-snack-product]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const name = btn.getAttribute('data-snack-product');
-        const cat = btn.getAttribute('data-snack-category');
-        if (selected[name]) {
-          delete selected[name];
-        } else {
-          const p = getProduct(name);
-          selected[name] = { name, category: cat, amount: p ? defaultAmountByUnit(p.unit) : 100 };
-        }
-        render();
-      });
-    });
-
-    // Remove chip
-    overlay.querySelectorAll('[data-snack-remove]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const name = btn.getAttribute('data-snack-remove');
-        delete selected[name];
-        render();
-      });
-    });
-
-    // Amount dec
-    overlay.querySelectorAll('[data-snack-dec]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const name = btn.getAttribute('data-snack-dec');
-        if (!selected[name]) return;
-        const p = getProduct(name);
-        const step = getSnackStep(p?.unit);
-        const min = p?.unit === 'шт' ? 1 : step;
-        selected[name].amount = Math.max(min, (selected[name].amount || step) - step);
-        render();
-      });
-    });
-
-    // Amount inc
-    overlay.querySelectorAll('[data-snack-inc]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const name = btn.getAttribute('data-snack-inc');
-        if (!selected[name]) return;
-        const p = getProduct(name);
-        const step = getSnackStep(p?.unit);
-        selected[name].amount = (selected[name].amount || step) + step;
-        render();
-      });
-    });
-
-    // Confirm
-    overlay.querySelector('#snack-confirm-btn')?.addEventListener('click', () => {
-      saveSnackDirectly(Object.values(selected));
-      overlay.remove();
-    });
-
-    // Cancel
-    overlay.querySelector('#snack-close-btn').addEventListener('click', () => overlay.remove());
-  }
-
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  document.body.appendChild(overlay);
-  render();
 }
 
 function saveSnackDirectly(items) {
@@ -1649,7 +1509,27 @@ function selectDate(dateStr) {
 }
 
 function renderMealCard(meal, date, index) {
-  // Формируем список продуктов — каждый с новой строки
+  const today = getTodayDate();
+  let isPast = false;
+  if (date === today && meal.time) {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const [mealH, mealM] = meal.time.split(':').map(Number);
+    const mealMinutes = mealH * 60 + mealM;
+    isPast = mealMinutes < currentMinutes - 15;
+  } else if (date < today) {
+    isPast = true;
+  }
+
+  const displayName = normalizeMealDisplayName(meal);
+  const isWater = displayName === WATER_MEAL_NAME || isWaterMeal(meal);
+  const isSnack = displayName === 'Перекус';
+
+  let cardClass = 'meal-card';
+  if (isWater) cardClass += ' meal-card--water';
+  else if (isSnack) cardClass += ' meal-card--snack';
+  if (isPast) cardClass += ' meal-card--past';
+
   const productsHtml = (meal.products || [])
     .map(product => {
       const amount = product.amount || 0;
@@ -1660,9 +1540,8 @@ function renderMealCard(meal, date, index) {
     .join('');
   
   const commentText = meal.comment ? `<div style="font-size:11px; color:#7a866f; margin-top:4px;">💬 ${escapeHtml(meal.comment)}</div>` : '';
-  const displayName = normalizeMealDisplayName(meal);
   
-  return `<div class="meal-card">
+  return `<div class="${cardClass}">
     <button class="delete-round" onclick="deleteMeal('${date}', ${index})" type="button">×</button>
     <button class="edit-time-btn" onclick="editMealTime('${date}', ${index})" type="button">⏱</button>
     
@@ -1762,7 +1641,6 @@ function openTimePicker(currentTime, onConfirm) {
         </div>
       </div>`;
 
-    // Прокручиваем барабаны к выбранному значению
     requestAnimationFrame(() => {
       const hScroll = overlay.querySelector('#tp-hours-scroll');
       const mScroll = overlay.querySelector('#tp-mins-scroll');
@@ -1822,12 +1700,10 @@ function updateMealTime(date, oldMeal, newTime) {
   diary[date] = meals;
   Storage.saveDiary(diary);
 
-  // Обновляем UI
   renderHome();
   renderDiary();
   renderTips();
   
-  // Если мы на экране добавления — обновляем контекст
   if (state.currentScreen === 'screen-add') {
     renderAddScreenContext();
   }
@@ -1835,49 +1711,39 @@ function updateMealTime(date, oldMeal, newTime) {
 
 function renderClickableChip(text, category) {
   if (!category) return `<span class="chip">${escapeHtml(text)}</span>`;
-  // Передаём слот текущего этапа дня в модалку
   return `<button class="chip" type="button" onclick="openCategoryModalFromTip('${escapeHtml(category)}')">${escapeHtml(text)}</button>`;
 }
 
-// Открывает модалку категории из совета — после выбора добавляет в слот
 function openCategoryModalFromTip(category) {
+  const today = getTodayDate();
+  
+  if (category === 'Напитки') {
+    addWaterForDate(today);
+    return;
+  }
+  
   if (state.currentScreen === 'screen-add') {
     openCategoryModal(category, { saveDirectly: false });
     return;
   }
-  const today = getTodayDate();
+  
   const mealSlot = getCurrentMealSlot(today);
-  // Для воды/напитков — всегда saveDirectly с типом WATER_MEAL_NAME
-  if (category === 'Напитки') {
-    openCategoryModal(category, { saveDirectly: true, mealType: WATER_MEAL_NAME });
-    return;
-  }
-  // Для остальных — используем слот
   openCategoryModal(category, {
     saveDirectly: true,
     mealType: mealSlot || 'Перекус',
-    useSlot: true  // флаг: добавить к существующей, а не создать новую
+    useSlot: true
   });
 }
 
-// ═══════════════════════════════════════════════════════
-// UNIVERSAL CATEGORY MODAL
-// options: { mealType?, saveDirectly? }
-//   saveDirectly=true  → сохранить как отдельный приём (из советов/дневника)
-//   saveDirectly=false → добавить в state.addRows (с экрана добавления)
-// ═══════════════════════════════════════════════════════
 function openCategoryModal(category, options = {}) {
   const isWaterCat = category === 'Напитки';
 
-  // Определяем режим: если мы на экране добавления — добавляем в черновик
-  // иначе — сохраняем напрямую (как snack/drinks)
   const saveDirectly = options.saveDirectly != null
     ? options.saveDirectly
     : (state.currentScreen !== 'screen-add');
 
   const mealTypeName = options.mealType || (isWaterCat ? WATER_MEAL_NAME : 'Перекус');
 
-  // selected: { productName → { name, amount } }
   const selected = {};
 
   const overlay = document.createElement('div');
@@ -1989,7 +1855,6 @@ function openCategoryModal(category, options = {}) {
         </div>
       </div>`;
 
-    // Тогл продукта
     overlay.querySelectorAll('[data-cm-product]').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.getAttribute('data-cm-product');
@@ -2003,7 +1868,6 @@ function openCategoryModal(category, options = {}) {
       });
     });
 
-    // −
     overlay.querySelectorAll('[data-cm-dec]').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -2017,7 +1881,6 @@ function openCategoryModal(category, options = {}) {
       });
     });
 
-    // +
     overlay.querySelectorAll('[data-cm-inc]').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -2030,7 +1893,6 @@ function openCategoryModal(category, options = {}) {
       });
     });
 
-    // Удалить
     overlay.querySelectorAll('[data-cm-remove]').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -2039,17 +1901,14 @@ function openCategoryModal(category, options = {}) {
       });
     });
 
-    // Подтвердить
     overlay.querySelector('#cm-confirm-btn')?.addEventListener('click', () => {
       const items = Object.values(selected);
       if (!items.length) return;
 
       if (saveDirectly) {
         if (options.useSlot && mealTypeName !== WATER_MEAL_NAME) {
-          // Добавляем в слот (существующая карточка или новая)
           saveItemsToMealSlot(mealTypeName, items, state.selectedDate || getTodayDate());
         } else {
-          // Сохраняем как отдельный приём (вода, перекус)
           let totalCal = 0, totalProt = 0, totalFat = 0, totalCarb = 0;
           const products = [];
           items.forEach(({ name, amount }) => {
@@ -2076,7 +1935,6 @@ function openCategoryModal(category, options = {}) {
           renderHome(); renderDiary(); renderTips();
         }
       } else {
-        // Добавляем в черновик экрана "Добавить"
         items.forEach(({ name, amount }) => {
           const product = getProduct(name);
           if (!product) return;
@@ -2099,12 +1957,9 @@ function openCategoryModal(category, options = {}) {
   render();
 }
 
-// Оставляем openDrinksModal как псевдоним для совместимости
 function openDrinksModal() {
   openCategoryModal('Напитки');
 }
-
-// ─── Старый openDrinksModal body (удалён, заменён на universal) ───
 
 function normalizeSuggestedExample(example) {
   const mealTypeInput = document.getElementById('meal-type');
@@ -2206,38 +2061,30 @@ function applySuggestionExample(example) {
   closeSuggestionModal();
 }
 
-// ─── Маппинг токена подсказки → категории продуктов для табов в модалке ───────
 function resolveTokenCategories(token) {
   const t = normalizePhrase(token);
 
-  // Хлеб → вся категория "Хлеб и хлебцы"
   if (t.includes('хлеб') || t === 'хлебцы')
     return [{ label: 'Хлеб и хлебцы', products: getCategoryProducts('Хлеб и хлебцы') }];
 
-  // Салат / овощи → вся категория "Овощи и салаты"
   if (t === 'салат' || t === 'овощи' || t.includes('овощ'))
     return [{ label: 'Овощи и салаты', products: getCategoryProducts('Овощи и салаты') }];
 
-  // Гарнир → "Каши, крупы и гарниры"
   if (t === 'гарнир' || t === 'гарниры' || t.includes('гарнир'))
     return [{ label: 'Каши, крупы и гарниры', products: getCategoryProducts('Каши, крупы и гарниры') }];
 
-  // Каша → только каши из категории
   if (t === 'каша' || t.includes('каш'))
     return [{ label: 'Каши', products: getCategoryProducts('Каши, крупы и гарниры').filter(n => {
       const p = getProduct(n);
       return p && (p.tags.includes('porridge') || normalizePhrase(n).includes('каш'));
     }) }];
 
-  // Рыба → "Рыба и морепродукты"
   if (t === 'рыба' || t.includes('рыб') || t.includes('морепродукт'))
     return [{ label: 'Рыба и морепродукты', products: getCategoryProducts('Рыба и морепродукты') }];
 
-  // Курица / мясо → "Птица и мясо"
   if (t === 'курица' || t === 'мясо' || t.includes('курц') || t.includes('птиц') || t.includes('мяс'))
     return [{ label: 'Птица и мясо', products: getCategoryProducts('Птица и мясо') }];
 
-  // Белок → яйца + молочные + птица + рыба
   if (t === 'белок' || t.includes('белков')) {
     const contextKey = getSuggestionMealContext();
     if (contextKey === 'breakfast') {
@@ -2249,58 +2096,47 @@ function resolveTokenCategories(token) {
     ];
   }
 
-  // Суп → "Супы и первые блюда"
   if (t === 'суп' || t.includes('суп') || t.includes('первое'))
     return [{ label: 'Супы и первые блюда', products: getCategoryProducts('Супы и первые блюда') }];
 
-  // Ягоды → только ягоды из фруктов
   if (t === 'ягоды' || t.includes('ягод'))
     return [{ label: 'Ягоды', products: getCategoryProducts('Фрукты и ягоды').filter(n => {
       const p = getProduct(n);
       return p && (p.tags.includes('berry') || ['Клубника','Черника','Малина','Смородина чёрная','Вишня','Черешня'].includes(n));
     }) }];
 
-  // Фрукт → только фрукты (не ягоды)
   if (t === 'фрукт' || t.includes('фрукт'))
     return [{ label: 'Фрукты', products: getCategoryProducts('Фрукты и ягоды').filter(n => {
       const p = getProduct(n);
       return p && p.tags.includes('fruit') && !p.tags.includes('berry');
     }) }];
 
-  // Орехи → "Орехи, масла и добавки" только орехи/семена
   if (t === 'орехи' || t.includes('орех'))
     return [{ label: 'Орехи', products: getCategoryProducts('Орехи, масла и добавки').filter(n => {
       const p = getProduct(n);
       return p && (p.tags.includes('nuts'));
     }) }];
 
-  // Йогурт / творог / молочное → яйца и молочные
   if (t.includes('йогурт') || t.includes('творог') || t.includes('молочн') || t.includes('кефир'))
     return [{ label: 'Молочные продукты', products: getCategoryProducts('Яйца и молочные продукты') }];
 
-  // Вода / напитки
   if (t.includes('вода') || t.includes('напит'))
     return [{ label: 'Напитки', products: getCategoryProducts('Напитки') }];
 
-  // Яйца / омлет / яичница
   if (t.includes('яйц') || t.includes('омлет') || t.includes('яичниц'))
     return [{ label: 'Яйца и молочные', products: getCategoryProducts('Яйца и молочные продукты') }];
 
-  // Выпечка / десерты
   if (t.includes('выпечк') || t.includes('десерт') || t.includes('сладк'))
     return [{ label: 'Выпечка и десерты', products: getCategoryProducts('Тесто, выпечка и десерты') }];
 
-  // Готовые / закуски
   if (t.includes('готов') || t.includes('закуск'))
     return [{ label: 'Готовые блюда', products: getCategoryProducts('Готовые блюда и закуски') }];
 
-  // Фоллбэк — прямой поиск продукта или поиск по всем категориям
   const direct = getProduct(token);
   if (direct) {
     return [{ label: direct.category, products: getCategoryProducts(direct.category) }];
   }
 
-  // Общий фоллбэк — ищем в каком-либо похожем имени
   for (const cat of getCategories()) {
     const prods = getCategoryProducts(cat).filter(n => normalizePhrase(n).includes(t));
     if (prods.length) return [{ label: cat, products: getCategoryProducts(cat) }];
@@ -2312,26 +2148,21 @@ function resolveTokenCategories(token) {
 function showSuggestionModal(example) {
   closeSuggestionModal();
 
-  // Разбиваем example по '+' на части
   const parts = String(example || '').split('+').map(p => p.trim()).filter(Boolean);
   if (!parts.length) return;
 
-  // Строим вкладки: один таб на каждую часть. Каждая часть — массив продуктов
   const tabs = parts.map((part, i) => {
     const groups = resolveTokenCategories(part);
-    // Все продукты всех групп для этого таба
     const allProducts = uniqueExistingProducts(groups.flatMap(g => g.products));
     return {
       id: `tab_${i}`,
       label: part,
-      groups,                // [{label, products}] — для подзаголовков внутри таба
-      allProducts,           // все продукты таба (для поиска уникальности)
+      groups,
+      allProducts,
     };
   });
 
-  // selected: { productName -> { name, amount, tabLabel } }
   const selected = {};
-
   let activeTabId = tabs[0]?.id || '';
 
   const overlay = document.createElement('div');
@@ -2472,7 +2303,6 @@ function showSuggestionModal(example) {
         </div>
       </div>`;
 
-    // Табы
     overlay.querySelectorAll('[data-sg-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
         activeTabId = btn.getAttribute('data-sg-tab');
@@ -2480,7 +2310,6 @@ function showSuggestionModal(example) {
       });
     });
 
-    // Тогл продукта
     overlay.querySelectorAll('[data-sg-product]').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.getAttribute('data-sg-product');
@@ -2495,7 +2324,6 @@ function showSuggestionModal(example) {
       });
     });
 
-    // Кнопки количества — минус
     overlay.querySelectorAll('[data-sg-amount-dec]').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -2509,20 +2337,17 @@ function showSuggestionModal(example) {
       });
     });
 
-    // Кнопки количества — плюс
     overlay.querySelectorAll('[data-sg-amount-inc]').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         const name = btn.getAttribute('data-sg-amount-inc');
         if (!selected[name]) return;
         const p = getProduct(name);
-        const step = getStep(p?.unit);
-        selected[name].amount = (selected[name].amount || step) + step;
+        selected[name].amount = (selected[name].amount || getStep(p?.unit)) + getStep(p?.unit);
         render();
       });
     });
 
-    // Удаление из выбранных
     overlay.querySelectorAll('[data-sg-remove]').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -2531,11 +2356,9 @@ function showSuggestionModal(example) {
       });
     });
 
-    // Применить
     overlay.querySelector('#sg-apply-btn')?.addEventListener('click', () => {
       const productNames = Object.keys(selected);
       if (!productNames.length) return;
-      // Применяем с кастомными количествами
       state.addRows = productNames.map(name => {
         const product = getProduct(name);
         const row = createEmptyRow(product?.name || name, product?.category || state.currentCategory);
@@ -2559,14 +2382,11 @@ function showSuggestionModal(example) {
   render();
 }
 
-// Добавляет продукты к существующей записи завтрака/обеда/ужина
-// Если запись есть — обновляет её. Если нет — создаёт новую.
 function addProductsToMealSlot(mealType, productNames, dateStr) {
   const safeDate = toDateInputValue(dateStr || state.selectedDate || getTodayDate());
   const diary = Storage.getDiary();
   const meals = diary[safeDate] || [];
 
-  // Ищем существующую запись этого типа
   const existingIndex = meals.findIndex(m => normalizeMealDisplayName(m) === mealType);
 
   const newProducts = productNames.map(name => {
@@ -2577,11 +2397,9 @@ function addProductsToMealSlot(mealType, productNames, dateStr) {
   if (!newProducts.length) return;
 
   if (existingIndex >= 0) {
-    // Добавляем продукты к существующей записи
     const existing = meals[existingIndex];
     const merged = [...(existing.products || []), ...newProducts];
 
-    // Пересчитываем итоги
     let cal = 0, prot = 0, fat = 0, carb = 0;
     merged.forEach(prod => {
       const p = getProduct(prod.name);
@@ -2604,7 +2422,6 @@ function addProductsToMealSlot(mealType, productNames, dateStr) {
     diary[safeDate] = meals;
     Storage.saveDiary(diary);
   } else {
-    // Создаём новую запись
     let cal = 0, prot = 0, fat = 0, carb = 0;
     newProducts.forEach(prod => {
       const p = getProduct(prod.name);
@@ -2632,7 +2449,6 @@ function addProductsToMealSlot(mealType, productNames, dateStr) {
   renderTips();
 }
 
-// Определяет текущий слот завтрак/обед/ужин по стадии дня
 function getCurrentMealSlot(dateStr) {
   const date = dateStr || state.selectedDate || getTodayDate();
   const analysis = getDayAnalysis(date);
@@ -2640,10 +2456,9 @@ function getCurrentMealSlot(dateStr) {
   if (stage === NutritionStage.BREAKFAST) return 'Завтрак';
   if (stage === NutritionStage.LUNCH) return 'Обед';
   if (stage === NutritionStage.DINNER) return 'Ужин';
-  return null; // день закрыт или вода
+  return null;
 }
 
-// Сохраняет продукты с количествами в слот (обновляет существующую или создаёт)
 function saveItemsToMealSlot(mealType, items, dateStr) {
   const safeDate = toDateInputValue(dateStr || state.selectedDate || getTodayDate());
 
@@ -2696,8 +2511,11 @@ function openSuggestionExample(example) {
   const today = getTodayDate();
   const mealSlot = getCurrentMealSlot(today);
 
-  // Открываем модалку подбора. После подтверждения — в слот (не новая карточка)
-  // Передаём контекст через closure
+  if (example.includes('Вода') || normalizePhrase(example).includes('вода')) {
+    addWaterForDate(today);
+    return;
+  }
+
   closeSuggestionModal();
 
   const parts = String(example || '').split('+').map(p => p.trim()).filter(Boolean);
@@ -2850,10 +2668,8 @@ function openSuggestionExample(example) {
       const items = Object.values(selected);
       if (!items.length) return;
       if (mealSlot && state.currentScreen !== 'screen-add') {
-        // Добавляем в слот завтрак/обед/ужин
         saveItemsToMealSlot(mealSlot, items, today);
       } else if (state.currentScreen === 'screen-add') {
-        // Добавляем в черновик экрана добавления
         items.forEach(({ name, amount }) => {
           const product = getProduct(name);
           const row = createEmptyRow(name, product?.category || state.currentCategory);
@@ -2862,7 +2678,6 @@ function openSuggestionExample(example) {
         });
         renderAddRows(); renderDayTotalsCard(); renderAddMealSuggestion();
       } else {
-        // Нет слота (перекус/день закрыт) — сохраняем как перекус
         saveItemsToMealSlot('Перекус', items, today);
       }
       overlay.remove();
@@ -2874,7 +2689,6 @@ function openSuggestionExample(example) {
   document.body.appendChild(overlay);
   render();
 }
-
 
 function renderExampleChip(example) {
   return `<button class="chip" type="button" onclick="openSuggestionExample('${escapeHtml(example)}')">${escapeHtml(example)}</button>`;
@@ -3104,13 +2918,97 @@ function renderAddScreenContext() {
   block.innerHTML = `<div class="card-title">Контекст дня</div><div class="card-subtitle">Дата: ${escapeHtml(formatDate(dateStr))}</div><div class="helper-text">Уже сохранено</div><div class="category-chip-list top-space">${mealsHtml}</div><div class="top-space"><div class="card-title" style="font-size:16px;">${escapeHtml(primary.title)}</div><div class="card-subtitle no-margin">${escapeHtml(primary.text)}</div></div>${secondaryHtml}`;
 }
 
+function buildDraftMealForEvaluation() {
+  const totals = getDraftMealTotals();
+  const products = (state.addRows || [])
+    .filter(row => getProduct(row.productName) && Number(row.amount) > 0)
+    .map(row => {
+      const product = getProduct(row.productName);
+      return {
+        name: row.productName,
+        amount: Number(row.amount) || 0,
+        unit: row.unit || product?.unit || 'гр',
+        tags: Array.isArray(product?.tags) ? product.tags : []
+      };
+    });
+  return {
+    name: normalizeMealTypeValue(getSafeMealTypeValue()),
+    time: document.getElementById('meal-time')?.value || '',
+    comment: document.getElementById('meal-comment')?.value || '',
+    calories: totals.calories,
+    protein: totals.protein,
+    fats: totals.fats,
+    carbs: totals.carbs,
+    products
+  };
+}
+
+function getSoftScenarioHint(evaluation) {
+  if (!evaluation) return 'Для баланса хорошо бы добавить ещё один элемент';
+  const categories = Array.isArray(evaluation.categories) ? evaluation.categories : [];
+  const message = String(evaluation.message || '').trim();
+  if (
+    categories.includes('Яйца и молочные продукты') ||
+    categories.includes('Птица и мясо') ||
+    categories.includes('Рыба и морепродукты')
+  ) return 'Для баланса хорошо бы добавить белковую основу';
+  if (categories.includes('Овощи и салаты')) return 'Можно добавить овощи для более собранного приёма';
+  if (categories.includes('Каши, крупы и гарниры')) return 'Можно усилить приём ещё одним продуктом';
+  if (message) return message;
+  return 'Для баланса хорошо бы добавить ещё один элемент';
+}
+
+function renderMealBuilderScenarioCard() {
+  const container = document.getElementById('meal-builder-suggestion');
+  if (!container) return;
+
+  const mealType = normalizeMealTypeValue(getSafeMealTypeValue());
+
+  const validRows = (state.addRows || []).filter(row =>
+    getProduct(row.productName) && Number(row.amount) > 0
+  );
+
+  if (!validRows.length) {
+    container.innerHTML = `
+      <div class="scenario-hint-card scenario-hint--empty">
+        <div class="scenario-hint-title">Начни с одного продукта или выбери категорию</div>
+        <div class="scenario-hint-sub">Так будет проще собрать сбалансированный приём</div>
+      </div>`;
+    return;
+  }
+
+  if (mealType === WATER_MEAL_NAME) {
+    container.innerHTML = `
+      <div class="scenario-hint-card scenario-hint--ok">
+        <div class="scenario-hint-title">Приём воды добавлен</div>
+        <div class="scenario-hint-sub">Можно сохранить запись</div>
+      </div>`;
+    return;
+  }
+
+  const draftMeal = buildDraftMealForEvaluation();
+  const profile = Storage.getProfile();
+  const goalProfile = getGoalMealProfile(profile?.goal || 'maintain', mealType);
+  const evaluation = evaluateMealByType(mealType, draftMeal, goalProfile);
+
+  if (evaluation?.isBalanced) {
+    container.innerHTML = `
+      <div class="scenario-hint-card scenario-hint--ok">
+        <div class="scenario-hint-title">${escapeHtml(mealType)} отвечает цели</div>
+        <div class="scenario-hint-sub">Приём собран сбалансированно</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="scenario-hint-card scenario-hint--partial">
+      <div class="scenario-hint-title">Можно добавить ещё продукт</div>
+      <div class="scenario-hint-sub">${escapeHtml(getSoftScenarioHint(evaluation))}</div>
+    </div>`;
+}
+
 function renderAddMealSuggestion() {
-  ensureMealTypeOptions();
-  const currentRawMealType = document.getElementById('meal-type')?.value || 'Завтрак';
-  const normalizedMealType = normalizeMealTypeForBuilder(currentRawMealType);
-  const tip = getMealBuilderSuggestion(normalizedMealType, state.addRows.map(row => getProduct(row.productName)).filter(Boolean));
-  const existing = document.getElementById('meal-builder-suggestion');
-  if (existing) existing.innerHTML = renderTipCard(tip);
+  renderMealBuilderScenarioCard();
 }
 
 function getTotalsCardElements() {
@@ -3148,7 +3046,6 @@ function renderDayTotalsCard() {
       : 'Добавь хотя бы один продукт.';
   }
 
-  // Влияние на день
   const impactBlock = document.getElementById('day-impact-block');
   const impactText = document.getElementById('day-impact-text');
   if (impactBlock && impactText && draft.productsCount > 0) {
@@ -3214,7 +3111,7 @@ function adjustRowAmount(id, delta, min = 1) {
   });
   renderAddRows();
   renderDayTotalsCard();
-  renderAddMealSuggestion();
+  renderMealBuilderScenarioCard();
 }
 
 function renderMealTypeChips() {
@@ -3233,7 +3130,6 @@ function renderMealTypeChips() {
     btn.addEventListener('click', () => {
       const type = btn.getAttribute('data-meal-type');
       if (select) {
-        // Ensure option exists
         let opt = Array.from(select.options).find(o => o.value === type);
         if (!opt) {
           opt = document.createElement('option');
@@ -3243,23 +3139,27 @@ function renderMealTypeChips() {
         }
         select.value = type;
       }
+      // Если выбран тип Вода — очищаем список продуктов и блокируем добавление
+      if (type === WATER_MEAL_NAME) {
+        state.addRows = [];
+        renderAddRows();
+        renderDayTotalsCard();
+      }
       renderMealTypeChips();
+      updateMealTimeReminder();
+      updateMealDetailsStatus();
+      updateSaveTimeHint();
       renderAddMealSuggestion();
       renderDayTotalsCard();
+      renderMealBuilderScenarioCard();
     });
   });
 }
 
 function initDetailsAccordion() {
-  const toggle = document.getElementById('details-toggle');
-  const body = document.getElementById('details-body');
-  const arrow = document.getElementById('details-arrow');
-  if (!toggle || !body) return;
-  toggle.addEventListener('click', () => {
-    const isOpen = body.style.display !== 'none';
-    body.style.display = isOpen ? 'none' : 'block';
-    if (arrow) arrow.textContent = isOpen ? '▾' : '▴';
-  });
+  const toggle = document.getElementById('meal-details-toggle');
+  if (!toggle) return;
+  setMealDetailsExpanded(toggle.getAttribute('aria-expanded') === 'true');
 }
 
 function setupAddScreen() {
@@ -3269,11 +3169,9 @@ function setupAddScreen() {
   const safeDate = toDateInputValue(state.mealFormDate || state.selectedDate || getTodayDate());
   state.mealFormDate = safeDate;
 
-  // Метка даты в hero
   const dateLabel = document.getElementById('add-screen-date-label');
   if (dateLabel) dateLabel.textContent = `На ${formatDate(safeDate)}`;
 
-  // Дата/время (в аккордеоне)
   const mealDate = document.getElementById('meal-date');
   const mealTime = document.getElementById('meal-time');
   if (mealDate) mealDate.value = safeDate;
@@ -3282,11 +3180,9 @@ function setupAddScreen() {
     mealTime.value = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
   }
 
-  // Тип приёма
   const mealType = document.getElementById('meal-type');
   if (mealType && !state.addRows.length) {
     if (state.preselectedMealType) {
-      // Ensure option exists for water
       ensureMealTypeOptions();
       mealType.value = state.preselectedMealType;
     } else {
@@ -3297,13 +3193,15 @@ function setupAddScreen() {
   }
   if (mealType) mealType.value = getSafeMealTypeValue();
 
-  // Рендер чипов типа приёма
   renderMealTypeChips();
+  updateMealTimeReminder();
+  updateMealDetailsStatus();
+  updateSaveTimeHint();
+  setMealDetailsExpanded(false);
 
-  // Аккордеон деталей — инициализируем один раз
-  if (!document.getElementById('details-toggle')?._bound) {
+  if (!document.getElementById('meal-details-toggle')?._bound) {
     initDetailsAccordion();
-    const t = document.getElementById('details-toggle');
+    const t = document.getElementById('meal-details-toggle');
     if (t) t._bound = true;
   }
 
@@ -3312,9 +3210,10 @@ function setupAddScreen() {
   renderAddScreenContext();
   renderDayTotalsCard();
   renderAddMealSuggestion();
+  renderMealBuilderScenarioCard();
   requestAnimationFrame(() => {
     renderDayTotalsCard();
-    renderAddMealSuggestion();
+    renderMealBuilderScenarioCard();
   });
   state.preselectedMealType = '';
   state.preselectedCategory = '';
@@ -3323,10 +3222,21 @@ function setupAddScreen() {
 function renderAddRows() {
   const container = document.getElementById('meal-products');
   if (!container) return;
-  if (!state.addRows.length) {
-    container.innerHTML = '<div class="card empty-state">Начни с одного продукта или выбери категорию</div>';
+  
+  const mealType = getSafeMealTypeValue();
+  // Если тип Вода — скрываем список продуктов и показываем сообщение
+  if (mealType === WATER_MEAL_NAME) {
+    container.innerHTML = '<div class="card empty-state">Для добавления воды просто нажми «Сохранить запись»</div>';
+    updateSaveTimeHint();
     return;
   }
+  
+  if (!state.addRows.length) {
+    container.innerHTML = '<div class="card empty-state">Начни с одного продукта или выбери категорию</div>';
+    updateSaveTimeHint();
+    return;
+  }
+  
   container.innerHTML = state.addRows.map(row => {
     const nutrition = computeRowNutrition(row);
     const cal = nutrition ? Math.round(nutrition.calories) : 0;
@@ -3348,14 +3258,6 @@ function renderAddRows() {
         </div>
       </div>`;
   }).join('');
-
-  // Показываем кнопку "Сохранить шаблон" только если есть валидные продукты
-  const saveTplBtn = document.getElementById('save-template-btn');
-  if (saveTplBtn) {
-    const hasValid = state.addRows.some(row => getProduct(row.productName) && Number(row.amount) > 0);
-    saveTplBtn.style.display = hasValid ? '' : 'none';
-  }
-
   requestAnimationFrame(renderMealBuilderScenarioCard);
 }
 
@@ -3393,7 +3295,6 @@ function updateRowAmount(id, value) {
   renderAddMealSuggestion();
 }
 
-// ─── Глобальный поиск по всей базе ───────────────────────────────
 function searchAllProducts(query) {
   if (!query) return [];
   const q = normalizeSearchValue(query);
@@ -3405,7 +3306,6 @@ function searchAllProducts(query) {
       }
     }
   }
-  // Сначала совпадения с начала, потом остальные
   results.sort((a, b) => {
     const an = normalizeSearchValue(a.name);
     const bn = normalizeSearchValue(b.name);
@@ -3417,7 +3317,6 @@ function searchAllProducts(query) {
 }
 
 function renderGlobalSearchDropdown() {
-  // Убираем старый
   document.getElementById('global-search-dropdown')?.remove();
 
   const searchInput = document.getElementById('product-search');
@@ -3457,7 +3356,7 @@ function renderGlobalSearchDropdown() {
 
   dd.querySelectorAll('[data-gs-name]').forEach(btn => {
     btn.addEventListener('mousedown', e => {
-      e.preventDefault(); // не теряем фокус до blur
+      e.preventDefault();
       const name = btn.getAttribute('data-gs-name');
       searchInput.value = name;
       dd.remove();
@@ -3475,7 +3374,6 @@ function addFromSearch() {
 
   document.getElementById('global-search-dropdown')?.remove();
 
-  // Ищем по всей базе
   const q = normalizeSearchValue(searchValue);
   let matchedName = '';
   for (const category of getCategories()) {
@@ -3521,6 +3419,23 @@ function calculateMealTotals() {
 }
 
 function saveMeal() {
+  const mealType = getSafeMealTypeValue();
+  const time = getMealTimeValue();
+  if (!state.mealTimeTouched || !time) {
+    updateSaveTimeHint();
+  }
+  
+  // Если тип Вода — сохраняем воду напрямую
+  if (mealType === WATER_MEAL_NAME) {
+    addWaterForDate(state.mealFormDate || getTodayDate(), time || getCurrentTimeStr());
+    state.mealTimeTouched = false;
+    updateMealTimeReminder();
+    updateMealDetailsStatus();
+    updateSaveTimeHint();
+    openScreen('screen-diary');
+    return;
+  }
+  
   const activeRows = state.addRows.filter(row => getProduct(row.productName) && Number(row.amount) > 0);
   if (!activeRows.length) {
     alert('Добавь хотя бы один продукт.');
@@ -3535,14 +3450,9 @@ function saveMeal() {
   });
   const draftTotals = getDraftMealTotals();
 
-  // Если выбран тип "Приём воды" ИЛИ все продукты — вода → всегда WATER_MEAL_NAME
-  let selectedMealType = normalizeMealTypeValue(document.getElementById('meal-type').value);
-  const allWater = products.every(p => isWaterProduct(p));
-  if (allWater) selectedMealType = WATER_MEAL_NAME;
-
   const meal = {
     time: document.getElementById('meal-time').value || getCurrentTimeStr(),
-    name: selectedMealType,
+    name: mealType,
     comment: document.getElementById('meal-comment').value.trim(),
     calories: draftTotals.calories,
     protein: draftTotals.protein,
@@ -3550,11 +3460,60 @@ function saveMeal() {
     carbs: draftTotals.carbs,
     products
   };
+
+  const mergeable = ['Завтрак', 'Обед', 'Ужин'];
+  if (mergeable.includes(mealType)) {
+    const diary = Storage.getDiary();
+    const dayMeals = diary[saveDate] || [];
+    const existingIndex = dayMeals.findIndex(m => normalizeMealDisplayName(m) === mealType);
+    if (existingIndex >= 0) {
+      const existing = dayMeals[existingIndex];
+      const merged = [...(existing.products || []), ...products];
+      let cal = 0, prot = 0, fat = 0, carb = 0;
+      merged.forEach(prod => {
+        const p = getProduct(prod.name);
+        if (!p) return;
+        const ratio = prod.amount / getAmountBase(p.unit);
+        cal  += p.calories * ratio;
+        prot += p.protein  * ratio;
+        fat  += p.fats     * ratio;
+        carb += p.carbs    * ratio;
+      });
+      dayMeals[existingIndex] = {
+        ...existing,
+        products: merged,
+        calories: Math.round(cal),
+        protein: round1(prot),
+        fats: round1(fat),
+        carbs: round1(carb)
+      };
+      diary[saveDate] = dayMeals;
+      Storage.saveDiary(diary);
+      state.addRows = [];
+      state.preselectedMealType = '';
+      state.preselectedCategory = '';
+      resetMealFormInputs({ keepDate: true });
+      state.mealTimeTouched = false;
+      updateMealTimeReminder();
+      updateMealDetailsStatus();
+      updateSaveTimeHint();
+      renderHome();
+      renderDiary();
+      renderTips();
+      openScreen('screen-diary');
+      return;
+    }
+  }
+
   Storage.saveMeal(saveDate, meal);
   state.addRows = [];
   state.preselectedMealType = '';
   state.preselectedCategory = '';
+  state.mealTimeTouched = false;
   resetMealFormInputs({ keepDate: true });
+  updateMealTimeReminder();
+  updateMealDetailsStatus();
+  updateSaveTimeHint();
   renderHome();
   renderDiary();
   renderTips();
@@ -3590,7 +3549,6 @@ function bindEvents() {
     searchInput.addEventListener('input', () => renderGlobalSearchDropdown());
     searchInput.addEventListener('focus', () => renderGlobalSearchDropdown());
     searchInput.addEventListener('blur', () => {
-      // Небольшая задержка чтобы клик по дропдауну успел сработать
       setTimeout(() => {
         const dd = document.getElementById('global-search-dropdown');
         if (dd) dd.remove();
@@ -3607,375 +3565,40 @@ function bindEvents() {
   }
   const mealTimeInput = document.getElementById('meal-time');
   if (mealTimeInput) {
+    const syncMealTimeUi = () => {
+      state.mealTimeTouched = true;
+      updateMealTimeReminder();
+      updateMealDetailsStatus();
+      updateSaveTimeHint();
+    };
+
+    mealTimeInput.addEventListener('input', syncMealTimeUi);
+    mealTimeInput.addEventListener('change', syncMealTimeUi);
     mealTimeInput.addEventListener('click', e => {
       e.preventDefault();
-      // Автоскролл — чтобы модалка не перекрывала поле
       const rect = mealTimeInput.getBoundingClientRect();
       const scrollTarget = window.scrollY + rect.top - 60;
       window.scrollTo({ top: scrollTarget, behavior: 'smooth' });
       setTimeout(() => {
         openTimePicker(mealTimeInput.value || getCurrentTimeStr(), newTime => {
           mealTimeInput.value = newTime;
+          syncMealTimeUi();
         });
       }, 150);
     });
-    mealTimeInput.addEventListener('keydown', e => e.preventDefault()); // только через модалку
-  }
-}
-
-
-
-// ═══════════════════════════════════════════════════════
-// ШАБЛОНЫ ПРИЁМОВ ПИЩИ
-// ═══════════════════════════════════════════════════════
-
-const TemplatesManager = {
-  STORAGE_KEY: 'nutritionaist_templates_v1',
-
-  load() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch { return []; }
-  },
-
-  save(templates) {
-    try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(templates)); } catch(e) {}
-  },
-
-  add(name, mealType, rows) {
-    const templates = this.load();
-    const products = rows
-      .filter(row => getProduct(row.productName) && Number(row.amount) > 0)
-      .map(row => ({ name: row.productName, amount: Number(row.amount), unit: row.unit }));
-    if (!products.length) return false;
-    // Если шаблон с таким именем уже есть — перезаписываем
-    const idx = templates.findIndex(t => t.name === name);
-    const tpl = { id: `tpl_${Date.now()}`, name, mealType, products, createdAt: new Date().toISOString() };
-    if (idx >= 0) templates[idx] = tpl; else templates.push(tpl);
-    this.save(templates);
-    return true;
-  },
-
-  remove(id) {
-    const templates = this.load().filter(t => t.id !== id);
-    this.save(templates);
-  }
-};
-
-function openSaveTemplateModal() {
-  const validRows = (state.addRows || []).filter(row =>
-    getProduct(row.productName) && Number(row.amount) > 0
-  );
-  if (!validRows.length) {
-    alert('Добавь хотя бы один продукт, чтобы сохранить шаблон.');
-    return;
+    mealTimeInput.addEventListener('keydown', e => e.preventDefault());
   }
 
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,20,20,.45);z-index:10002;display:flex;align-items:flex-end;justify-content:center;padding:16px;';
-
-  const mealType = normalizeMealTypeValue(getSafeMealTypeValue());
-  const suggestedName = mealType !== WATER_MEAL_NAME ? `Мой ${mealType.toLowerCase()}` : 'Мой шаблон';
-
-  overlay.innerHTML = `
-    <div style="width:min(440px,100%);background:#fff;border-radius:24px;padding:20px;
-      box-shadow:0 20px 40px rgba(0,0,0,.18);">
-      <div style="font-size:13px;font-weight:700;color:#7a866f;margin-bottom:4px;">сохранить шаблон</div>
-      <div style="font-size:20px;font-weight:800;color:#1f231d;margin-bottom:6px;">Название шаблона</div>
-      <div style="font-size:13px;color:#7a866f;margin-bottom:14px;">
-        ${validRows.length} продукт(а): ${validRows.map(r => r.productName).slice(0, 3).join(', ')}${validRows.length > 3 ? '...' : ''}
-      </div>
-      <input id="tpl-name-input" type="text" value="${escapeHtml(suggestedName)}"
-        style="width:100%;min-height:50px;padding:14px;border-radius:10px;
-        border:1.5px solid rgba(68,86,58,.35);font-size:16px;font-weight:700;
-        color:#1f231d;outline:none;box-sizing:border-box;margin-bottom:14px;" />
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <button id="tpl-cancel" style="padding:14px;border-radius:14px;border:1px solid #d7dccf;
-          background:#fff;color:#1f231d;font-size:15px;font-weight:700;cursor:pointer;">Отмена</button>
-        <button id="tpl-save" style="padding:14px;border-radius:14px;border:none;
-          background:linear-gradient(135deg,#657b58,#44563a);color:#fff;
-          font-size:15px;font-weight:800;cursor:pointer;">Сохранить</button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-
-  const input = overlay.querySelector('#tpl-name-input');
-  requestAnimationFrame(() => { input.focus(); input.select(); });
-
-  overlay.querySelector('#tpl-save').addEventListener('click', () => {
-    const name = input.value.trim();
-    if (!name) { input.focus(); return; }
-    const ok = TemplatesManager.add(name, mealType, state.addRows);
-    overlay.remove();
-    if (ok) showToast(`Шаблон «${name}» сохранён`);
+  document.getElementById('meal-details-toggle')?.addEventListener('click', () => {
+    const expanded = document.getElementById('meal-details-toggle')?.getAttribute('aria-expanded') === 'true';
+    setMealDetailsExpanded(!expanded);
   });
 
-  overlay.querySelector('#tpl-cancel').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('open-meal-details-btn')?.addEventListener('click', () => {
+    setMealDetailsExpanded(true);
+    document.getElementById('meal-time')?.focus();
+  });
 }
-
-function openTemplatesModal() {
-  const templates = TemplatesManager.load();
-
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,20,20,.45);z-index:10002;display:flex;align-items:flex-end;justify-content:center;padding:16px;';
-
-  function calcTplCal(tpl) {
-    return Math.round(tpl.products.reduce((sum, prod) => {
-      const p = getProduct(prod.name);
-      if (!p) return sum;
-      return sum + p.calories / getAmountBase(p.unit) * prod.amount;
-    }, 0));
-  }
-
-  function render() {
-    const tpls = TemplatesManager.load();
-    overlay.innerHTML = `
-      <div style="width:min(480px,100%);max-height:80vh;display:flex;flex-direction:column;
-        background:#fff;border-radius:24px;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,.18);">
-        <div style="font-size:13px;font-weight:700;color:#7a866f;margin-bottom:4px;">быстрые шаблоны</div>
-        <div style="font-size:20px;font-weight:800;color:#1f231d;margin-bottom:14px;">Мои шаблоны</div>
-        <div style="overflow-y:auto;flex:1;min-height:0;">
-          ${!tpls.length ? `<div style="padding:20px 0;text-align:center;color:#7a866f;font-size:14px;">
-            Шаблонов пока нет.<br>Собери приём и нажми «Сохранить как шаблон».</div>` :
-            tpls.map(tpl => {
-              const cal = calcTplCal(tpl);
-              const prodList = tpl.products.map(p => {
-                const unit = getUnitLabel(p.unit);
-                return `${p.name} ${p.amount} ${unit}`;
-              }).join(' • ');
-              return `
-                <div style="padding:14px;border-radius:14px;border:1px solid rgba(31,35,29,.1);
-                  background:#faf8f4;margin-bottom:10px;">
-                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
-                    <div>
-                      <div style="font-size:15px;font-weight:800;color:#1f231d;">${escapeHtml(tpl.name)}</div>
-                      <div style="font-size:12px;color:#7a866f;margin-top:2px;">${escapeHtml(tpl.mealType)} • ${cal} ккал</div>
-                    </div>
-                    <button data-tpl-delete="${escapeHtml(tpl.id)}"
-                      style="width:28px;height:28px;border-radius:8px;border:1px solid rgba(169,77,73,.25);
-                      background:#fef2f2;color:#a94d49;font-size:15px;font-weight:800;cursor:pointer;
-                      display:grid;place-items:center;flex-shrink:0;padding:0;box-sizing:border-box;">×</button>
-                  </div>
-                  <div style="font-size:12px;color:#5d6557;line-height:1.5;margin-bottom:10px;">${escapeHtml(prodList)}</div>
-                  <button data-tpl-apply="${escapeHtml(tpl.id)}"
-                    style="width:100%;padding:10px;border-radius:10px;border:none;
-                    background:linear-gradient(135deg,#657b58,#44563a);color:#fff;
-                    font-size:14px;font-weight:800;cursor:pointer;">Применить шаблон</button>
-                </div>`;
-            }).join('')
-          }
-        </div>
-        <button id="tpl-modal-close"
-          style="margin-top:14px;width:100%;padding:13px;border-radius:14px;
-          border:1px solid #d7dccf;background:#fff;color:#1f231d;font-size:15px;font-weight:700;cursor:pointer;">Закрыть</button>
-      </div>`;
-
-    overlay.querySelectorAll('[data-tpl-apply]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-tpl-apply');
-        const tpl = TemplatesManager.load().find(t => t.id === id);
-        if (!tpl) return;
-
-        // Применяем шаблон — устанавливаем тип приёма и заполняем addRows
-        const mealTypeSelect = document.getElementById('meal-type');
-        if (mealTypeSelect && tpl.mealType) {
-          ensureMealTypeOptions();
-          let opt = Array.from(mealTypeSelect.options).find(o => o.value === tpl.mealType);
-          if (!opt) {
-            opt = document.createElement('option');
-            opt.value = tpl.mealType;
-            opt.textContent = tpl.mealType;
-            mealTypeSelect.appendChild(opt);
-          }
-          mealTypeSelect.value = tpl.mealType;
-        }
-
-        state.addRows = tpl.products
-          .map(prod => {
-            const p = getProduct(prod.name);
-            if (!p) return null; // продукт удалён из базы — пропускаем
-            const row = createEmptyRow(prod.name, p.category);
-            row.amount = prod.amount;
-            row.unit = prod.unit;
-            return row;
-          })
-          .filter(Boolean);
-
-        renderMealTypeChips();
-        renderAddRows();
-        renderDayTotalsCard();
-        renderMealBuilderScenarioCard();
-        overlay.remove();
-        showToast(`Шаблон «${tpl.name}» применён`);
-      });
-    });
-
-    overlay.querySelectorAll('[data-tpl-delete]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-tpl-delete');
-        TemplatesManager.remove(id);
-        render();
-      });
-    });
-
-    overlay.querySelector('#tpl-modal-close').addEventListener('click', () => overlay.remove());
-  }
-
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  document.body.appendChild(overlay);
-  render();
-}
-
-// ─── Toast-уведомление ────────────────────────────────
-function showToast(message) {
-  document.getElementById('app-toast')?.remove();
-  const toast = document.createElement('div');
-  toast.id = 'app-toast';
-  toast.textContent = message;
-  toast.style.cssText = `
-    position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
-    background:rgba(36,52,30,.92);color:#fff;
-    padding:10px 20px;border-radius:999px;
-    font-size:14px;font-weight:700;
-    box-shadow:0 4px 16px rgba(0,0,0,.18);
-    z-index:10010;white-space:nowrap;
-    animation:toast-in .2s ease;`;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2400);
-}
-
-// ═══════════════════════════════════════════════════════
-// ГОЛОСОВОЙ ВВОД
-// ═══════════════════════════════════════════════════════
-
-// Парсит фразу "гречка 150 грамм" → { query: 'гречка', amount: 150, unit: 'гр' }
-function parseVoicePhrase(phrase) {
-  const text = String(phrase || '').trim().toLowerCase().replace(/ё/g, 'е');
-
-  // Паттерны единиц измерения
-  const unitMap = {
-    'грамм': 'гр', 'граммов': 'гр', 'гр': 'гр', 'г': 'гр',
-    'миллилитр': 'мл', 'миллилитров': 'мл', 'мл': 'мл',
-    'штук': 'шт', 'штуки': 'шт', 'штука': 'шт', 'шт': 'шт',
-    'литр': 'мл', 'литра': 'мл', 'литров': 'мл'
-  };
-
-  // Ищем число и единицу в фразе
-  const numUnitRe = /(\d+(?:[.,]\d+)?)\s*(граммов?|миллилитров?|штук[аи]?|литров?|гр?|мл|шт)/gi;
-  let amount = null;
-  let unit = 'гр';
-  let matchStr = '';
-
-  const m = numUnitRe.exec(text);
-  if (m) {
-    amount = parseFloat(m[1].replace(',', '.'));
-    unit = unitMap[m[2].toLowerCase()] || 'гр';
-    if (unit === 'мл' && m[2].toLowerCase().startsWith('литр')) amount *= 1000;
-    matchStr = m[0];
-  } else {
-    // Просто число без единицы
-    const numRe = /\b(\d+)\b/;
-    const nm = numRe.exec(text);
-    if (nm) { amount = parseInt(nm[1], 10); matchStr = nm[0]; }
-  }
-
-  // Запрос = фраза без числа и единицы
-  const query = text.replace(matchStr, '').trim().replace(/\s+/g, ' ');
-  return { query, amount, unit };
-}
-
-function startVoiceInput() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return; // не поддерживается
-
-  const mic = document.getElementById('voice-mic-btn');
-  if (!mic) return;
-
-  const recognition = new SpeechRecognition();
-  recognition.lang = 'ru-RU';
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-
-  // Анимация записи
-  mic.classList.add('voice-mic--recording');
-  mic.title = 'Говорите...';
-
-  recognition.onresult = event => {
-    const transcript = event.results[0][0].transcript;
-    const { query, amount, unit } = parseVoicePhrase(transcript);
-
-    if (!query) { mic.classList.remove('voice-mic--recording'); return; }
-
-    // Ищем продукт по распознанной фразе
-    const q = normalizeSearchValue(query);
-    let matchedName = '';
-    for (const category of getCategories()) {
-      const exact = getCategoryProducts(category).find(n => normalizeSearchValue(n) === q);
-      if (exact) { matchedName = exact; break; }
-    }
-    if (!matchedName) {
-      for (const category of getCategories()) {
-        const starts = getCategoryProducts(category).find(n => normalizeSearchValue(n).startsWith(q));
-        if (starts) { matchedName = starts; break; }
-      }
-    }
-    if (!matchedName) {
-      for (const category of getCategories()) {
-        const inc = getCategoryProducts(category).find(n => normalizeSearchValue(n).includes(q));
-        if (inc) { matchedName = inc; break; }
-      }
-    }
-
-    if (matchedName) {
-      const product = getProduct(matchedName);
-      const row = createEmptyRow(matchedName, product?.category || state.currentCategory);
-      // Применяем распознанное количество если есть
-      if (amount && amount > 0) {
-        row.amount = amount;
-        // Конвертируем единицу если нужно
-        if (unit && product?.unit !== unit) {
-          if (product?.unit === 'гр' && unit === 'мл') row.unit = 'мл';
-          else row.unit = product?.unit || unit;
-        }
-      }
-      state.addRows.push(row);
-      renderAddRows();
-      renderDayTotalsCard();
-      renderMealBuilderScenarioCard();
-      showToast(`«${matchedName}» добавлена${amount ? ` — ${amount} ${getUnitLabel(row.unit)}` : ''}`);
-    } else {
-      // Не нашли — вставляем в поле поиска
-      const searchInput = document.getElementById('product-search');
-      if (searchInput) {
-        searchInput.value = query;
-        renderGlobalSearchDropdown();
-      }
-      showToast(`Не нашли «${query}» — уточни вручную`);
-    }
-  };
-
-  recognition.onerror = () => mic.classList.remove('voice-mic--recording');
-  recognition.onend   = () => { mic.classList.remove('voice-mic--recording'); mic.title = 'Голосовой ввод'; };
-  recognition.start();
-}
-
-function initVoiceButton() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const btn = document.getElementById('voice-mic-btn');
-  if (!btn) return;
-  if (!SpeechRecognition) {
-    btn.style.display = 'none'; // скрываем если нет поддержки
-    return;
-  }
-  btn.style.display = '';
-  btn.addEventListener('click', startVoiceInput);
-}
-
-
 
 const PhotoManager = {
   STORAGE_KEY: 'nutritionaist_profile_photo',
@@ -3997,11 +3620,10 @@ function renderPhotoEverywhere() {
   const dataUrl = PhotoManager.load();
   const avatarText = getAvatarText(Storage.getProfile()?.name);
 
-  // Обновляем все hero-photo-placeholder на странице
   const placeholders = [
     document.getElementById('home-photo-placeholder'),
     document.getElementById('profile-hero-photo-placeholder'),
-    document.getElementById('profile-photo-placeholder'), // в profile-card (legacy)
+    document.getElementById('profile-photo-placeholder'),
   ];
 
   placeholders.forEach(ph => {
@@ -4017,27 +3639,23 @@ function renderPhotoEverywhere() {
 }
 
 function openPhotoCropper(srcDataUrl) {
-  // Удаляем старый overlay если есть
   document.getElementById('photo-cropper-overlay')?.remove();
 
   const overlay = document.createElement('div');
   overlay.id = 'photo-cropper-overlay';
   overlay.className = 'photo-cropper-overlay';
 
-  // Состояние кадрировщика
   let scale = 1;
   let offsetX = 0;
   let offsetY = 0;
   let naturalW = 0;
   let naturalH = 0;
-  let viewportSize = 0; // px, вычисляется после mount
+  let viewportSize = 0;
 
-  // Drag
   let dragging = false;
   let dragStartX = 0, dragStartY = 0;
   let dragOffsetStartX = 0, dragOffsetStartY = 0;
 
-  // Pinch
   let lastPinchDist = 0;
 
   overlay.innerHTML = `
@@ -4066,7 +3684,6 @@ function openPhotoCropper(srcDataUrl) {
   function clampOffsets() {
     const displayW = naturalW * scale;
     const displayH = naturalH * scale;
-    // Не даём уходить за край: изображение должно перекрывать viewport
     const minX = Math.min(0, viewportSize - displayW);
     const minY = Math.min(0, viewportSize - displayH);
     offsetX = Math.max(minX, Math.min(0, offsetX));
@@ -4089,7 +3706,6 @@ function openPhotoCropper(srcDataUrl) {
     zoomInput.max  = (minScale * 4).toFixed(3);
     zoomInput.step = (minScale * 0.01).toFixed(4);
     zoomInput.value = scale;
-    // Центрировать
     offsetX = (viewportSize - naturalW * scale) / 2;
     offsetY = (viewportSize - naturalH * scale) / 2;
     clampOffsets();
@@ -4101,14 +3717,12 @@ function openPhotoCropper(srcDataUrl) {
     naturalH = img.naturalHeight;
     fitToViewport();
   };
-  // На случай если уже загружено (cached)
   if (img.complete && img.naturalWidth) {
     naturalW = img.naturalWidth;
     naturalH = img.naturalHeight;
     requestAnimationFrame(fitToViewport);
   }
 
-  // ─── Drag ───
   viewport.addEventListener('pointerdown', e => {
     if (e.touches) return;
     dragging = true;
@@ -4131,7 +3745,6 @@ function openPhotoCropper(srcDataUrl) {
   viewport.addEventListener('pointerup', () => { dragging = false; });
   viewport.addEventListener('pointercancel', () => { dragging = false; });
 
-  // ─── Touch drag + pinch ───
   let touchStartDist = 0, touchScaleStart = 1;
   let touchStartMidX = 0, touchStartMidY = 0;
   let touchOffsetStartX = 0, touchOffsetStartY = 0;
@@ -4188,7 +3801,6 @@ function openPhotoCropper(srcDataUrl) {
 
   viewport.addEventListener('touchend', () => { dragging = false; });
 
-  // ─── Колесо мыши ───
   viewport.addEventListener('wheel', e => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.08 : 0.08;
@@ -4206,7 +3818,6 @@ function openPhotoCropper(srcDataUrl) {
     applyTransform();
   }, { passive: false });
 
-  // ─── Слайдер зума ───
   zoomInput.addEventListener('input', () => {
     const newScale = parseFloat(zoomInput.value);
     const cx = viewportSize / 2;
@@ -4218,11 +3829,9 @@ function openPhotoCropper(srcDataUrl) {
     applyTransform();
   });
 
-  // ─── Сохранение — рендерим canvas ───
   overlay.querySelector('#cropper-save').addEventListener('click', () => {
     const size = viewportSize || viewport.getBoundingClientRect().width;
     const canvas = document.createElement('canvas');
-    // Сохраняем в 2x для retina
     const out = Math.min(size * 2, 600);
     canvas.width  = out;
     canvas.height = out;
@@ -4230,10 +3839,10 @@ function openPhotoCropper(srcDataUrl) {
     const ratio = out / size;
     ctx.drawImage(
       img,
-      -offsetX / scale,       // sx
-      -offsetY / scale,       // sy
-      size / scale,            // sw
-      size / scale,            // sh
+      -offsetX / scale,
+      -offsetY / scale,
+      size / scale,
+      size / scale,
       0, 0, out, out
     );
     const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
@@ -4252,7 +3861,6 @@ function initPhotoHandlers() {
 
   function triggerFilePick() { fileInput.click(); }
 
-  // Все hero-photo-btn открывают пикер
   ['home-photo-btn', 'profile-hero-photo-btn', 'profile-photo-btn'].forEach(id => {
     document.getElementById(id)?.addEventListener('click', triggerFilePick);
   });
@@ -4276,7 +3884,6 @@ function init() {
   renderCategoryFilterChips();
   bindEvents();
   initPhotoHandlers();
-  initVoiceButton();
   renderPhotoEverywhere();
   renderProfile();
   renderHome();
@@ -4300,7 +3907,5 @@ window.openDrinksModal = openDrinksModal;
 window.openCategoryModal = openCategoryModal;
 window.openCategoryModalFromTip = openCategoryModalFromTip;
 window.editMealTime = editMealTime;
-window.openTemplatesModal = openTemplatesModal;
-window.openSaveTemplateModal = openSaveTemplateModal;
 
 init();
