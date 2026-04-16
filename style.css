@@ -619,11 +619,11 @@ textarea:focus {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  line-height: 2;
+  line-height: -2;
   padding: 2;
   margin: 0;
   z-index: auto;
-  padding-bottom: 8px;
+  padding-bottom: 12px;
 }
 
 .edit-time-btn {
