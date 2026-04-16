@@ -620,7 +620,7 @@ textarea:focus {
   align-items: flex-end;
   justify-content: center;
   line-height: 2;
-  padding: 0;
+  padding: 2;
   margin: 0;
   z-index: auto;
   padding-bottom: 8px;
