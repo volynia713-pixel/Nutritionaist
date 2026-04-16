@@ -90,6 +90,9 @@
         <div class="sheet">
           <div class="card-title">Быстрое действие</div>
           <div class="card-subtitle">Открыть день и добавить запись в один шаг.</div>
+          <div class="helper-text" style="margin-top:0;margin-bottom:12px;">
+            После выбора приёма укажи точное время в «Детали» — так день будет собран по порядку.
+          </div>
 
           <div id="diary-primary-slot"></div>
           <div id="diary-water-slot" class="top-space"></div>
@@ -119,22 +122,24 @@
             </select>
           </div>
 
-          <!-- Поиск + микрофон -->
+          <div class="card add-time-reminder" id="meal-time-reminder" style="display:none;margin-top:10px;padding:12px;">
+            <div class="add-time-reminder-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <div>
+                <div id="meal-time-reminder-title" style="font-size:13px;font-weight:800;color:var(--text);">Укажи время приёма</div>
+                <div id="meal-time-reminder-text" style="font-size:12px;line-height:1.45;color:var(--muted);margin-top:4px;">
+                  Оно попадёт в дневник и поможет выстроить день по порядку.
+                </div>
+              </div>
+              <button class="btn btn-secondary" id="open-meal-details-btn" type="button" style="min-height:40px;padding:10px 12px;white-space:nowrap;">Открыть детали</button>
+            </div>
+          </div>
+
+          <!-- Поиск -->
           <div class="field top-space">
             <label for="product-search">Найти продукт</label>
-            <div class="search-with-mic">
-              <input id="product-search" type="text"
-                placeholder="Например: гречка, омлет, яблоко"
-                autocomplete="off" />
-              <button id="voice-mic-btn" class="voice-mic-btn" type="button" title="Голосовой ввод" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                  <line x1="12" y1="19" x2="12" y2="23"/>
-                  <line x1="8" y1="23" x2="16" y2="23"/>
-                </svg>
-              </button>
-            </div>
+            <input id="product-search" type="text"
+              placeholder="Например: гречка, омлет, яблоко"
+              autocomplete="off" />
           </div>
 
           <!-- Быстрые категории -->
@@ -142,18 +147,6 @@
           <select id="product-category" class="visually-hidden"></select>
           <!-- Выбранные продукты -->
           <div id="meal-products" class="top-space"></div>
-
-          <!-- Кнопки шаблонов — появляются когда есть продукты -->
-          <div class="tpl-action-row top-space" id="tpl-action-row">
-            <button class="tpl-btn tpl-btn--secondary" onclick="openTemplatesModal()" type="button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-              Мои шаблоны
-            </button>
-            <button class="tpl-btn tpl-btn--primary" id="save-template-btn" onclick="openSaveTemplateModal()" type="button" style="display:none;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              Сохранить шаблон
-            </button>
-          </div>
 
           <!-- Итог + влияние на день -->
           <div class="card top-space" id="add-totals-card">
@@ -187,12 +180,15 @@
           <div id="meal-builder-suggestion" class="top-space"></div>
 
           <!-- Аккордеон деталей -->
-          <div class="details-accordion top-space" id="details-accordion">
-            <button class="details-accordion-toggle" id="details-toggle" type="button">
-              <span>Детали (дата, время, комментарий)</span>
-              <span class="details-accordion-arrow" id="details-arrow">▾</span>
+          <div class="details-accordion top-space sheet" id="details-accordion">
+            <button class="details-toggle details-accordion-toggle" id="meal-details-toggle" type="button" aria-expanded="false" style="width:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;background:none;border:none;padding:0;cursor:pointer;">
+              <div style="text-align:left;">
+                <div class="card-title no-margin">Детали</div>
+                <div class="card-subtitle no-margin" id="meal-details-status">Время не указано</div>
+              </div>
+              <span class="details-accordion-arrow" id="meal-details-toggle-icon" aria-hidden="true">⌄</span>
             </button>
-            <div class="details-accordion-body" id="details-body" style="display:none;">
+            <div class="details-accordion-body" id="meal-details-content" style="display:none;margin-top:12px;">
               <div class="grid-2" style="margin-top:12px;">
                 <div class="field">
                   <label for="meal-date">Дата</label>
@@ -207,6 +203,13 @@
                 <label for="meal-comment">Комментарий</label>
                 <input type="text" id="meal-comment" placeholder="Например: после тренировки" />
               </div>
+            </div>
+          </div>
+
+          <div class="card top-space" id="save-time-hint" style="display:none;padding:12px;">
+            <div style="font-size:13px;font-weight:800;color:var(--text);">Проверь время приёма</div>
+            <div style="font-size:12px;line-height:1.45;color:var(--muted);margin-top:4px;">
+              Оно влияет на порядок записей в дневнике.
             </div>
           </div>
 
