@@ -614,10 +614,10 @@ textarea:focus {
   background: var(--danger-soft);
   color: var(--danger);
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 400;
   cursor: pointer;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: center;
   line-height: 2;
   padding: 0;
