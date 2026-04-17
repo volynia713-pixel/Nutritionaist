@@ -554,55 +554,6 @@ textarea:focus {
   margin-top: 4px;
 }
 
-/* Карточка воды */
-.meal-card--water {
-  background: #EDF4F1;
-  border-color: #D7E4DE;
-}
-.meal-card--water .time-badge {
-  background: #D7E4DE;
-  border-color: #C0D3CC;
-  color: #6E8F88;
-}
-.meal-card--water .meal-name {
-  color: #4A7068;
-}
-.meal-card--water .meal-calories {
-  color: #6E8F88;
-}
-
-/* Карточка перекуса */
-.meal-card--snack {
-  background: #F6EEE6;
-  border-color: #E7D8C8;
-}
-.meal-card--snack .time-badge {
-  background: #E7D8C8;
-  border-color: #D4C0A8;
-  color: #A67C5B;
-}
-.meal-card--snack .meal-name {
-  color: #7A5438;
-}
-.meal-card--snack .meal-calories {
-  color: #A67C5B;
-}
-
-/* Затемнённые варианты для прошедших карточек */
-.meal-card--water.meal-card--past {
-  background: #E0EDEA;
-  border-color: #C5D9D3;
-  opacity: 0.6;
-}
-.meal-card--snack.meal-card--past {
-  background: #EDE5DB;
-  border-color: #D9C9B5;
-  opacity: 0.6;
-}
-.meal-card--past:not(.meal-card--water):not(.meal-card--snack) {
-  opacity: 0.55;
-}
-
 .delete-round {
   position: absolute;
   top: 12px;
@@ -614,16 +565,16 @@ textarea:focus {
   background: var(--danger-soft);
   color: var(--danger);
   font-size: 24px;
-  font-weight: 400;
+  font-weight: 800;
   cursor: pointer;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  line-height: 4;
+  line-height: 0.6;
   padding: 0;
   margin: 0;
   z-index: auto;
-  padding-bottom: 12px;
+  padding-bottom: 4px;
 }
 
 .edit-time-btn {
@@ -938,11 +889,29 @@ textarea:focus {
 }
 
 /* В hero-card (Дневник, Добавить) — нижний правый угол */
-#diary-date-chip,
 #add-date-chip {
   position: absolute;
   bottom: 16px;
   right: 16px;
+}
+
+/* Строка с eyebrow и чипом даты в Дневнике */
+.diary-eyebrow-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+/* Убираем нижний отступ у eyebrow внутри строки (он уже задан на row) */
+.diary-eyebrow-row .eyebrow {
+  margin-bottom: 0;
+}
+
+/* Чип даты в строке eyebrow — статичный, не абсолютный */
+#diary-date-chip {
+  position: static;
+  flex-shrink: 0;
 }
 
 /* В карточке Сводка (Главная) — inline рядом с заголовком */
@@ -1396,10 +1365,11 @@ textarea:focus {
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   flex: 1;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+  min-width: 0;
 }
 
 .add-product-item-cal {
@@ -1423,44 +1393,28 @@ textarea:focus {
   border: 1.5px solid rgba(68, 86, 58, 0.22);
   background: var(--card-soft);
   color: var(--accent-deep);
-  font-size: 18px;
-  font-weight: 400;
+  font-size: 16px;
+  font-weight: 800;
   cursor: pointer;
-  display: flex;
+  display: var(--btn-minus-plus-display);
   align-items: center;
   justify-content: center;
   padding: 0;
   box-sizing: border-box;
   flex-shrink: 0;
-  line-height: 1.3;
+  line-height: 1;
+  transform: translateY(-8px);
 }
 
 /* Кнопки - и + в модалках (категории, подсказки) */
 [data-cm-dec], [data-cm-inc],
 [data-sg-dec], [data-sg-inc],
-[data-sg-amount-dec], [data-sg-amount-inc],
-[data-snack-dec], [data-snack-inc] {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  line-height: 1 !important;
-  font-size: 18px !important;
-  font-weight: 400 !important;
+[data-sg-amount-dec], [data-sg-amount-inc] {
+  display: var(--btn-minus-plus-display) !important;
+  align-items: var(--btn-align-items) !important;
+  justify-content: var(--btn-justify-content) !important;
+  line-height: var(--btn-minus-plus-line-height) !important;
   padding: 0 !important;
-  box-sizing: border-box !important;
-}
-
-/* Крестик × в модалках */
-[data-cm-remove], [data-remove-item],
-[data-snack-remove], [data-sg-remove] {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  line-height: 1 !important;
-  font-size: 16px !important;
-  font-weight: 700 !important;
-  padding: 0 !important;
-  line-height: 1.2;
   box-sizing: border-box !important;
 }
 
