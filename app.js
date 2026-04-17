@@ -1349,16 +1349,23 @@ function openSnackModal() {
 
     overlay.querySelectorAll('[data-amount-input]').forEach(input => {
       const productName = input.getAttribute('data-amount-input');
-      // При фокусе — выделяем всё, чтобы одним вводом заменить значение
-      input.addEventListener('focus', (e) => {
-        e.target.select();
+      // Select all on focus so user can replace value immediately
+      input.addEventListener('focus', () => {
+        setTimeout(() => input.select(), 0);
       });
-      input.addEventListener('click', (e) => {
-        e.target.select();
+      // Update on change (when user leaves field or presses Enter)
+      input.addEventListener('change', (e) => {
+        const val = parseFloat(e.target.value);
+        if (!isNaN(val) && val >= 0) {
+          updateProductAmount(productName, val);
+          render();
+        }
       });
-      input.addEventListener('input', (e) => {
-        updateProductAmount(productName, e.target.value);
-        render();
+      // Also handle Enter key
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.target.blur();
+        }
       });
     });
 
@@ -1528,7 +1535,14 @@ function renderMealCard(meal, date, index) {
     isPast = true;
   }
 
-  const pastStyle = isPast ? 'opacity:0.55;' : '';
+  const displayName = normalizeMealDisplayName(meal);
+  const isWater = displayName === WATER_MEAL_NAME || isWaterMeal(meal);
+  const isSnack = displayName === 'Перекус';
+
+  let cardClass = 'meal-card';
+  if (isWater) cardClass += ' meal-card--water';
+  else if (isSnack) cardClass += ' meal-card--snack';
+  if (isPast) cardClass += ' meal-card--past';
 
   const productsHtml = (meal.products || [])
     .map(product => {
@@ -1540,9 +1554,8 @@ function renderMealCard(meal, date, index) {
     .join('');
   
   const commentText = meal.comment ? `<div style="font-size:11px; color:#7a866f; margin-top:4px;">💬 ${escapeHtml(meal.comment)}</div>` : '';
-  const displayName = normalizeMealDisplayName(meal);
   
-  return `<div class="meal-card" style="${pastStyle}">
+  return `<div class="${cardClass}">
     <button class="delete-round" onclick="deleteMeal('${date}', ${index})" type="button">×</button>
     <button class="edit-time-btn" onclick="editMealTime('${date}', ${index})" type="button">⏱</button>
     
@@ -3164,7 +3177,6 @@ function initDetailsAccordion() {
 }
 
 function setupAddScreen() {
-  renderDateChip('add-date-chip', getTodayDate());
   ensureMealTypeOptions();
 
   const safeDate = toDateInputValue(state.mealFormDate || state.selectedDate || getTodayDate());
@@ -3238,22 +3250,44 @@ function renderAddRows() {
     return;
   }
   
-  container.innerHTML = state.addRows.map(row => {
+  container.innerHTML = state.addRows.map((row, rowIndex) => {
     const nutrition = computeRowNutrition(row);
     const cal = nutrition ? Math.round(nutrition.calories) : 0;
     const unit = getUnitLabel(row.unit || 'гр');
     const p = getProduct(row.productName);
     const step = p?.unit === 'шт' ? 1 : p?.unit === 'мл' ? 50 : 25;
     const min = p?.unit === 'шт' ? 1 : step;
+    const name = row.productName || '—';
+    const words = name.trim().split(/\s+/);
+    const isFirst = rowIndex === 0;
+    const isMultiWord = words.length >= 2;
+
+    // First row with 2+ word name: split into two lines on mobile
+    // Line 1: first word; Line 2: rest of name + amount/unit
+    let nameHtml;
+    if (isFirst && isMultiWord) {
+      const firstWord = escapeHtml(words[0]);
+      const restWords = escapeHtml(words.slice(1).join(' '));
+      nameHtml = `<div class="add-product-item-name add-product-item-name--split">
+        <span class="add-product-name-line1">${firstWord}</span>
+        <span class="add-product-name-line2">${restWords} <span class="add-product-name-amount">${escapeHtml(String(row.amount))} ${unit}</span></span>
+      </div>`;
+    } else {
+      nameHtml = `<div class="add-product-item-name">${escapeHtml(name)}</div>`;
+    }
+
     return `
-      <div class="add-product-item">
+      <div class="add-product-item${isFirst && isMultiWord ? ' add-product-item--split' : ''}">
         <div class="add-product-item-main">
-          <div class="add-product-item-name">${escapeHtml(row.productName || '—')}</div>
+          ${nameHtml}
           <div class="add-product-item-cal">${cal} ккал</div>
         </div>
         <div class="add-product-item-controls">
           <button class="add-product-amt-btn" onclick="adjustRowAmount('${row.id}', ${-step}, ${min})" type="button">−</button>
-          <span class="add-product-amt-val">${escapeHtml(String(row.amount))} ${unit}</span>
+          ${isFirst && isMultiWord
+            ? `<span class="add-product-amt-val add-product-amt-val--hidden"></span>`
+            : `<span class="add-product-amt-val">${escapeHtml(String(row.amount))} ${unit}</span>`
+          }
           <button class="add-product-amt-btn" onclick="adjustRowAmount('${row.id}', ${step}, ${min})" type="button">+</button>
           <button class="add-product-del-btn" onclick="removeProductRow('${row.id}')" type="button">удалить</button>
         </div>
