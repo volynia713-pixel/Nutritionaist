@@ -1349,6 +1349,13 @@ function openSnackModal() {
 
     overlay.querySelectorAll('[data-amount-input]').forEach(input => {
       const productName = input.getAttribute('data-amount-input');
+      // При фокусе — выделяем всё, чтобы одним вводом заменить значение
+      input.addEventListener('focus', (e) => {
+        e.target.select();
+      });
+      input.addEventListener('click', (e) => {
+        e.target.select();
+      });
       input.addEventListener('input', (e) => {
         updateProductAmount(productName, e.target.value);
         render();
@@ -1521,14 +1528,7 @@ function renderMealCard(meal, date, index) {
     isPast = true;
   }
 
-  const displayName = normalizeMealDisplayName(meal);
-  const isWater = displayName === WATER_MEAL_NAME || isWaterMeal(meal);
-  const isSnack = displayName === 'Перекус';
-
-  let cardClass = 'meal-card';
-  if (isWater) cardClass += ' meal-card--water';
-  else if (isSnack) cardClass += ' meal-card--snack';
-  if (isPast) cardClass += ' meal-card--past';
+  const pastStyle = isPast ? 'opacity:0.55;' : '';
 
   const productsHtml = (meal.products || [])
     .map(product => {
@@ -1540,8 +1540,9 @@ function renderMealCard(meal, date, index) {
     .join('');
   
   const commentText = meal.comment ? `<div style="font-size:11px; color:#7a866f; margin-top:4px;">💬 ${escapeHtml(meal.comment)}</div>` : '';
+  const displayName = normalizeMealDisplayName(meal);
   
-  return `<div class="${cardClass}">
+  return `<div class="meal-card" style="${pastStyle}">
     <button class="delete-round" onclick="deleteMeal('${date}', ${index})" type="button">×</button>
     <button class="edit-time-btn" onclick="editMealTime('${date}', ${index})" type="button">⏱</button>
     
