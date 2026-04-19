@@ -1821,19 +1821,19 @@ function openCategoryModal(category, options = {}) {
           <span style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:8px;">
             <button data-cm-dec="${escapeHtml(s.name)}"
               style="width:24px;height:24px;border-radius:6px;border:1px solid rgba(68,86,58,.25);
-              background:#fff;color:#44563a;font-size:15px;font-weight:800;cursor:pointer;
-              display:grid;place-items:center;line-height:1;padding:0;box-sizing:border-box;">−</button>
+              background:#fff;color:#44563a;font-size:16px;font-weight:400;cursor:pointer;
+              display:flex;align-items:center;justify-content:center;line-height:1;padding:0;box-sizing:border-box;">−</button>
             <span style="font-size:12px;font-weight:700;color:#44563a;min-width:54px;text-align:center;">
               ${s.amount} ${unit}</span>
             <button data-cm-inc="${escapeHtml(s.name)}"
               style="width:24px;height:24px;border-radius:6px;border:1px solid rgba(68,86,58,.25);
-              background:#fff;color:#44563a;font-size:15px;font-weight:800;cursor:pointer;
-              display:grid;place-items:center;line-height:1;padding:0;box-sizing:border-box;">+</button>
+              background:#fff;color:#44563a;font-size:16px;font-weight:400;cursor:pointer;
+              display:flex;align-items:center;justify-content:center;line-height:1;padding:0;box-sizing:border-box;">+</button>
             <span style="font-size:11px;color:#7a866f;min-width:38px;text-align:right;">${cal} кк</span>
             <button data-cm-remove="${escapeHtml(s.name)}"
               style="width:22px;height:22px;border-radius:50%;border:1px solid rgba(169,77,73,.3);
-              background:#f8e7e6;color:#a94d49;font-size:14px;font-weight:800;
-              cursor:pointer;display:grid;place-items:center;line-height:1;padding:0;box-sizing:border-box;">×</button>
+              background:#f8e7e6;color:#a94d49;font-size:14px;font-weight:400;
+              cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;box-sizing:border-box;">×</button>
           </span>
         </div>`;
       }).join('')}
