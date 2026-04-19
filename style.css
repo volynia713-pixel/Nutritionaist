@@ -613,17 +613,16 @@ textarea:focus {
   border: 1px solid var(--danger-line);
   background: var(--danger-soft);
   color: var(--danger);
-  font-size: 24px;
-  font-weight: 800;
+  font-size: 20px;
+  font-weight: 400;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 0.6;
+  line-height: 1;
   padding: 0;
   margin: 0;
   z-index: auto;
-  padding-bottom: 4px;
 }
 
 .edit-time-btn {
@@ -958,7 +957,13 @@ textarea:focus {
 }
 
 #diary-date-chip {
-  flex-shrink: 0;
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+}
+
+.diary-hero-card {
+  padding-bottom: 56px; /* extra space for the date chip at bottom-right */
 }
 
 /* В карточке Сводка (Главная) — inline рядом с заголовком */
@@ -1457,7 +1462,7 @@ textarea:focus {
 [data-sg-amount-dec], [data-sg-amount-inc],
 [data-snack-dec], [data-snack-inc] {
   display: flex !important;
-  align-items: flex-start !important;
+  align-items: center !important;
   justify-content: center !important;
   line-height: 1 !important;
   font-size: 18px !important;
@@ -1470,11 +1475,11 @@ textarea:focus {
 [data-cm-remove], [data-remove-item],
 [data-snack-remove], [data-sg-remove] {
   display: flex !important;
-  align-items: flex-start !important;
+  align-items: center !important;
   justify-content: center !important;
   line-height: 1 !important;
   font-size: 16px !important;
-  font-weight: 700 !important;
+  font-weight: 400 !important;
   padding: 0 !important;
   box-sizing: border-box !important;
 }
